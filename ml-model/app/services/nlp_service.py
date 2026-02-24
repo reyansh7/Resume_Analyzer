@@ -32,7 +32,10 @@ class NlpService:
         doc = self.nlp(text[:15000])
         noun_chunks = []
         if hasattr(doc, "noun_chunks"):
-            noun_chunks = [chunk.text.lower().strip() for chunk in doc.noun_chunks][:30]
+            try:
+                noun_chunks = [chunk.text.lower().strip() for chunk in doc.noun_chunks][:30]
+            except ValueError:
+                noun_chunks = []
 
         for chunk in noun_chunks:
             if chunk in role_skills and chunk not in found:

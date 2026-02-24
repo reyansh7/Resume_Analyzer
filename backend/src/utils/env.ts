@@ -3,6 +3,16 @@ import { z } from "zod";
 
 dotenv.config();
 
+const booleanFromEnv = z.preprocess((value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+  }
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -11,7 +21,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(10),
   CORS_ORIGIN: z.string().url(),
   ML_SERVICE_URL: z.string().url(),
-  USE_IN_MEMORY_DB: z.coerce.boolean().default(false)
+  USE_IN_MEMORY_DB: booleanFromEnv.default(false)
 });
 
 export const env = envSchema.parse(process.env);

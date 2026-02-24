@@ -15,6 +15,18 @@ type Tab = "overview" | "gaps" | "roadmap";
 
 const demo = {
   score: 78,
+  parsedResume: {
+    profession: "Software Engineer",
+    experienceLevel: "Mid",
+    skillsExtracted: ["react", "typescript", "node", "sql"],
+    wordCount: 420,
+    resumePreview: "Experienced software engineer building scalable web applications with React, TypeScript, and Node.js...",
+    modelUsed: "demo",
+    predictedCategory: "INFORMATION-TECHNOLOGY",
+    targetCategory: "INFORMATION-TECHNOLOGY",
+    targetCategoryProbability: 0.82,
+    certificationsDetected: ["AWS Developer Associate"]
+  },
   strengths: ["React", "TypeScript", "REST API Design"],
   gaps: ["Docker", "Kubernetes", "MLOps", "System Design"],
   transferable: ["Agile Delivery", "Stakeholder Communication", "Problem Solving"],
@@ -43,6 +55,7 @@ export default function DashboardPage() {
     if (mutation.data) {
       return {
         score: mutation.data.matchScore,
+        parsedResume: mutation.data.parsedResume,
         strengths: mutation.data.strengths,
         gaps: mutation.data.skillGaps,
         transferable: mutation.data.transferableSkills,
@@ -52,6 +65,14 @@ export default function DashboardPage() {
     }
     return demo;
   }, [mutation.data]);
+
+  const visibleCertifications = useMemo(() => {
+    const fromParsed = result.parsedResume?.certificationsDetected;
+    if (Array.isArray(fromParsed) && fromParsed.length > 0) {
+      return fromParsed;
+    }
+    return mutation.data ? [] : result.certs;
+  }, [mutation.data, result.certs, result.parsedResume?.certificationsDetected]);
 
   return (
     <main>
@@ -96,20 +117,54 @@ export default function DashboardPage() {
           )}
 
           {!mutation.isPending && tab === "overview" && (
-            <div className="grid gap-5 md:grid-cols-3">
-              <Card>
-                <p className="text-sm text-muted-foreground">Strengths</p>
-                <ul className="mt-3 space-y-2">{result.strengths.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
+            <>
+              <div className={`grid gap-5 ${visibleCertifications.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+                <Card>
+                  <p className="text-sm font-medium text-muted-foreground">Strengths</p>
+                  <ul className="mt-3 space-y-2">{result.strengths.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
+                </Card>
+                <Card>
+                  <p className="text-sm font-medium text-muted-foreground">Transferable Skills</p>
+                  <ul className="mt-3 space-y-2">{result.transferable.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
+                </Card>
+                {visibleCertifications.length > 0 && (
+                  <Card>
+                    <p className="text-sm font-medium text-muted-foreground">Certifications (Detected in Resume)</p>
+                    <ul className="mt-3 space-y-2">{visibleCertifications.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
+                  </Card>
+                )}
+              </div>
+
+              <Card className="mt-5">
+                <p className="text-sm font-medium text-muted-foreground">Resume Snapshot</p>
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium">Profession:</span> {result.parsedResume?.profession || "-"}</p>
+                    <p><span className="font-medium">Experience Level:</span> {result.parsedResume?.experienceLevel || "-"}</p>
+                    <p><span className="font-medium">Word Count:</span> {result.parsedResume?.wordCount ?? "-"}</p>
+                    <p><span className="font-medium">Category:</span> {result.parsedResume?.predictedCategory || "-"}</p>
+                    <p><span className="font-medium">Target Category:</span> {result.parsedResume?.targetCategory || "-"}</p>
+                    <p><span className="font-medium">Target Match Probability:</span> {typeof result.parsedResume?.targetCategoryProbability === "number" ? `${Math.round(result.parsedResume.targetCategoryProbability * 100)}%` : "-"}</p>
+                    <p><span className="font-medium">Model:</span> {result.parsedResume?.modelUsed || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Extracted Resume Skills</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(result.parsedResume?.skillsExtracted || []).slice(0, 16).map((item) => (
+                        <span key={item} className="rounded-md bg-secondary/70 px-2 py-1 text-xs">{item}</span>
+                      ))}
+                      {(!result.parsedResume?.skillsExtracted || result.parsedResume.skillsExtracted.length === 0) && (
+                        <span className="text-sm text-muted-foreground">No resume skills extracted.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 rounded-lg bg-secondary/40 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Resume Text Preview</p>
+                  <p className="mt-1 text-sm leading-relaxed">{result.parsedResume?.resumePreview || "Preview unavailable for this analysis."}</p>
+                </div>
               </Card>
-              <Card>
-                <p className="text-sm text-muted-foreground">Transferable Skills</p>
-                <ul className="mt-3 space-y-2">{result.transferable.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
-              </Card>
-              <Card>
-                <p className="text-sm text-muted-foreground">Certifications</p>
-                <ul className="mt-3 space-y-2">{result.certs.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
-              </Card>
-            </div>
+            </>
           )}
 
           {!mutation.isPending && tab === "gaps" && (
@@ -130,7 +185,7 @@ export default function DashboardPage() {
                   ))}
                 </ul>
               </Card>
-              <DashboardCharts />
+              <DashboardCharts strengths={result.strengths} gaps={result.gaps} matchScore={result.score} />
             </div>
           )}
 

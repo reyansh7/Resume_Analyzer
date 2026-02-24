@@ -59,6 +59,30 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
+### 2.1) Train Baseline Resume Classifier
+
+This trains a first-pass category model using both:
+- `ml-model/Resume/Resume.csv` (`Resume_str` + `Category`)
+- `ml-model/data/<CATEGORY>/*.pdf`
+
+```bash
+cd ml-model
+python -m venv .venv
+. .venv/Scripts/activate
+pip install -r requirements.txt
+python scripts/train_baseline.py
+```
+
+Optional faster run (subset PDFs):
+
+```bash
+python scripts/train_baseline.py --max-pdfs 600
+```
+
+Outputs:
+- `ml-model/saved_models/resume_classifier.joblib`
+- `ml-model/saved_models/resume_classifier_metrics.json`
+
 ### 3) Frontend
 
 ```bash

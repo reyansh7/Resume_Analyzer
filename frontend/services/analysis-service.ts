@@ -3,6 +3,21 @@ import { api } from "@/services/api";
 export type AnalysisResult = {
   id: string;
   matchScore: number;
+  parsedResume?: {
+    profession?: string;
+    experienceLevel?: string;
+    skillsExtracted?: string[];
+    skillsFromResumeCount?: number;
+    skillsFromProfileCount?: number;
+    wordCount?: number;
+    resumePreview?: string;
+    predictedCategory?: string | null;
+    predictionConfidence?: number | null;
+    targetCategory?: string | null;
+    targetCategoryProbability?: number | null;
+    certificationsDetected?: string[];
+    modelUsed?: string;
+  };
   strengths: string[];
   skillGaps: string[];
   transferableSkills: string[];

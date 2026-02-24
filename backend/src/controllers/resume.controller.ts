@@ -40,6 +40,7 @@ export async function analyzeResumeController(req: Request, res: Response) {
   return res.json({
     id: analysis.id,
     matchScore: analysis.matchScore,
+    parsedResume: analysis.parsedResume,
     strengths: analysis.strengths,
     skillGaps: analysis.skillGaps,
     transferableSkills: analysis.transferableSkills,
