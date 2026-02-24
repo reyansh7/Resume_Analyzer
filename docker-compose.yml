@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: resume-analyzer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: resume_analyzer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ml-model:
+    build:
+      context: ./ml-model
+      dockerfile: Dockerfile
+    container_name: resume-analyzer-ml
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: resume-analyzer-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - ml-model
+    environment:
+      PORT: 8080
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/resume_analyzer
+      JWT_SECRET: super_secure_jwt_secret_key
+      CORS_ORIGIN: http://localhost:3000
+      ML_SERVICE_URL: http://ml-model:8000
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: resume-analyzer-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

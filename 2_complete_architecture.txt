@@ -1,0 +1,47 @@
+CAREERLENS – COMPLETE WEBSITE ARCHITECTURE FLOW
+
+1.  LOGIN PAGE
+
+-   Clean light-themed modern UI
+-   Email + Password login
+-   OAuth (Google, LinkedIn)
+-   Dark mode toggle
+-   Smooth animations
+-   Secure authentication flow
+
+2.  ONBOARDING QUESTIONS After login:
+
+-   Select Profession
+-   Select Target Role
+-   Experience Level
+-   Current Skills (optional input)
+-   Career Goal
+
+3.  RESUME ANALYZER
+
+-   Upload PDF resume
+-   Backend extracts text
+-   ML service processes:
+    -   Skill extraction
+    -   Embedding generation
+    -   Experience parsing
+-   System compares with selected role
+
+4.  SKILL GAP REVEAL DASHBOARD
+
+-   Match Score (percentage)
+-   Strengths section
+-   Missing Skills section
+-   Transferable Skills section
+-   Recommended Roadmap
+-   Suggested Certifications
+-   Downloadable Report
+
+System Flow: Frontend → Backend → ML Service → Backend → Database →
+Frontend
+
+Backend handles: - Authentication - Business logic - Database
+operations - ML API calls
+
+ML Service handles: - NLP processing - Embeddings - Similarity scoring -
+Classification predictions
