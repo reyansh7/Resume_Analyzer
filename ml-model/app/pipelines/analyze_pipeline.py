@@ -23,6 +23,23 @@ ROLE_CATEGORY_MAP = {
     "devops engineer": "INFORMATION-TECHNOLOGY",
 }
 
+SKILL_ALIASES = {
+    "nodejs": "node",
+    "node.js": "node",
+    "node js": "node",
+    "k8s": "kubernetes",
+    "amazon web services": "aws",
+    "powerbi": "power bi",
+    "ci cd": "ci/cd",
+}
+
+SKILL_DISPLAY_NAMES = {
+    "aws": "AWS",
+    "sql": "SQL",
+    "ci/cd": "CI/CD",
+    "power bi": "Power BI",
+}
+
 
 @dataclass
 class AnalysisResult:
@@ -173,8 +190,202 @@ class AnalyzePipeline:
             )
         return steps
 
+    def _canonicalize_skill(self, value: str) -> str:
+        normalized = re.sub(r"[^a-z0-9+/\. ]+", " ", value.lower())
+        normalized = " ".join(normalized.split())
+        normalized = SKILL_ALIASES.get(normalized, normalized)
+        return normalized
+
+    def _display_skill(self, canonical: str) -> str:
+        if canonical in SKILL_DISPLAY_NAMES:
+            return SKILL_DISPLAY_NAMES[canonical]
+
+        return " ".join(part.upper() if len(part) <= 3 else part.title() for part in canonical.split(" "))
+
+    def _detect_section_key(self, line: str) -> str | None:
+        normalized = re.sub(r"[^a-z& ]+", " ", line.lower())
+        normalized = " ".join(normalized.split())
+
+        if not normalized:
+            return None
+
+        if "technical skills" in normalized or normalized == "skills":
+            return "skills"
+
+        if normalized in {"projects", "project", "academic projects"} or "projects" in normalized:
+            return "projects"
+
+        if "experience" in normalized or "work history" in normalized or "employment" in normalized:
+            return "experience"
+
+        if any(key in normalized for key in ["honors", "awards", "certifications", "achievements"]):
+            return "awards"
+
+        if normalized in {"education", "summary", "objective", "contact", "profile"}:
+            return "other"
+
+        return None
+
+    def _extract_resume_sections(self, resume_text: str) -> Dict[str, List[str]]:
+        sections: Dict[str, List[str]] = {
+            "skills": [],
+            "projects": [],
+            "experience": [],
+            "awards": [],
+        }
+
+        current_section: str | None = None
+        for raw_line in resume_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            detected = self._detect_section_key(line)
+            if detected == "other":
+                current_section = None
+                continue
+
+            if detected in sections:
+                current_section = detected
+                continue
+
+            if current_section in sections:
+                sections[current_section].append(line)
+
+        return sections
+
+    def _extract_skills_from_section(self, section_lines: List[str]) -> List[str]:
+        detected: List[str] = []
+        for line in section_lines:
+            cleaned = re.sub(r"^[•\-]\s*", "", line).strip()
+            if ":" in cleaned:
+                cleaned = cleaned.split(":", 1)[1]
+
+            parts = re.split(r"[,/;|]", cleaned)
+            for part in parts:
+                candidate = part.strip()
+                if len(candidate) < 2:
+                    continue
+                if candidate.lower() in {"and", "or", "with"}:
+                    continue
+                detected.append(candidate)
+
+        return list(dict.fromkeys(detected))
+
+    def _extract_awards(self, award_lines: List[str]) -> List[str]:
+        awards: List[str] = []
+        for line in award_lines:
+            cleaned = re.sub(r"^[•\-]\s*", "", line).strip()
+            if len(cleaned) < 6:
+                continue
+            if cleaned.lower() in {"honors & awards", "awards", "honors"}:
+                continue
+            awards.append(cleaned)
+
+        return list(dict.fromkeys(awards))[:8]
+
+    def _extract_best_project(self, project_lines: List[str]) -> str | None:
+        if not project_lines:
+            return None
+
+        blocks: List[Dict[str, object]] = []
+        current_title: str | None = None
+        current_points: List[str] = []
+
+        for line in project_lines:
+            cleaned = re.sub(r"^[•\-]\s*", "", line).strip()
+            is_bullet = bool(re.match(r"^[•\-]", line))
+
+            is_title_like = (
+                not is_bullet
+                and len(cleaned) <= 100
+                and not re.match(r"^(built|developed|created|implemented|led|tech|using)\b", cleaned.lower())
+            )
+
+            if is_title_like:
+                if current_title:
+                    blocks.append({"title": current_title, "points": current_points.copy()})
+                current_title = cleaned
+                current_points = []
+                continue
+
+            if current_title:
+                current_points.append(cleaned)
+
+        if current_title:
+            blocks.append({"title": current_title, "points": current_points.copy()})
+
+        if not blocks:
+            return re.sub(r"^[•\-]\s*", "", project_lines[0]).strip()
+
+        keyword_weights = {
+            "built": 2,
+            "developed": 2,
+            "implemented": 2,
+            "deployed": 2,
+            "model": 1,
+            "nlp": 1,
+            "ai": 1,
+            "accuracy": 2,
+            "api": 1,
+            "app": 1,
+        }
+
+        best_score = -1
+        best_summary: str | None = None
+        for block in blocks:
+            title = str(block["title"])
+            points = [str(item) for item in block["points"]]
+            joined = f"{title} {' '.join(points)}".lower()
+            score = sum(weight for key, weight in keyword_weights.items() if key in joined)
+            score += len(re.findall(r"\b\d+(?:\.\d+)?%?\b", joined))
+            score += min(len(points), 3)
+
+            summary_point = points[0] if points else ""
+            summary = f"{title} — {summary_point}".strip(" —")
+
+            if score > best_score:
+                best_score = score
+                best_summary = summary
+
+        return best_summary
+
+    def _extract_best_experiences(self, experience_lines: List[str]) -> List[str]:
+        if not experience_lines:
+            return []
+
+        cleaned_lines = [re.sub(r"^[•\-]\s*", "", line).strip() for line in experience_lines]
+        cleaned_lines = [line for line in cleaned_lines if len(line) >= 6]
+
+        keyword_weights = {
+            "led": 2,
+            "managed": 2,
+            "coordinated": 2,
+            "delivered": 2,
+            "built": 1,
+            "improved": 2,
+            "organized": 1,
+            "achieved": 2,
+            "supported": 1,
+            "assessed": 1,
+        }
+
+        scored: List[tuple[int, str]] = []
+        for line in cleaned_lines:
+            text = line.lower()
+            score = sum(weight for key, weight in keyword_weights.items() if key in text)
+            score += len(re.findall(r"\b\d+(?:\.\d+)?%?\b", text))
+            if len(line) > 60:
+                score += 1
+            scored.append((score, line))
+
+        scored.sort(key=lambda item: item[0], reverse=True)
+        top = [line for _, line in scored[:3]]
+        return list(dict.fromkeys(top))
+
     def run(self, resume_text: str, target_role: str, current_skills: List[str], profession: str, level: str) -> AnalysisResult:
         normalized_resume_text = " ".join(resume_text.split())
+        sections = self._extract_resume_sections(resume_text)
 
         # Resolve role-specific benchmark skills from our curated dictionary.
         role_key = target_role.lower().strip()
@@ -182,16 +393,66 @@ class AnalyzePipeline:
         target_category = self._resolve_target_category(role_key)
 
         extracted_skills = self.nlp_service.extract_skills(resume_text, role_key)
-        resume_skills = sorted(set([s.lower() for s in extracted_skills]))
-        profile_skills = sorted(set([s.lower() for s in current_skills]))
-        known_skills = sorted(set(resume_skills + profile_skills))
+        section_skills = self._extract_skills_from_section(sections["skills"])
 
-        role_skill_set = set(role_skills)
-        resume_role_strengths = [skill for skill in resume_skills if skill in role_skill_set]
-        profile_role_strengths = [skill for skill in profile_skills if skill in role_skill_set and skill not in resume_role_strengths]
+        role_skill_by_canonical: Dict[str, str] = {}
+        for role_skill in role_skills:
+            role_skill_by_canonical[self._canonicalize_skill(role_skill)] = role_skill
 
-        strengths = (resume_role_strengths + profile_role_strengths)[:8]
-        missing_skills = [skill for skill in role_skills if skill not in resume_role_strengths]
+        role_skill_set = set(role_skill_by_canonical.keys())
+
+        resume_skill_display_by_canonical: Dict[str, str] = {}
+        for raw_skill in section_skills:
+            canonical = self._canonicalize_skill(raw_skill)
+            if canonical and canonical not in resume_skill_display_by_canonical:
+                resume_skill_display_by_canonical[canonical] = raw_skill
+
+        for raw_skill in extracted_skills:
+            canonical = self._canonicalize_skill(raw_skill)
+            if canonical and canonical not in resume_skill_display_by_canonical:
+                resume_skill_display_by_canonical[canonical] = raw_skill
+
+        profile_skill_display_by_canonical: Dict[str, str] = {}
+        for raw_skill in current_skills:
+            canonical = self._canonicalize_skill(raw_skill)
+            if canonical and canonical not in profile_skill_display_by_canonical:
+                profile_skill_display_by_canonical[canonical] = raw_skill
+
+        resume_skill_keys = list(resume_skill_display_by_canonical.keys())
+        profile_skill_keys = list(profile_skill_display_by_canonical.keys())
+
+        resume_role_strengths = [skill for skill in resume_skill_keys if skill in role_skill_set]
+        profile_role_strengths = [
+            skill for skill in profile_skill_keys if skill in role_skill_set and skill not in resume_role_strengths
+        ]
+
+        additional_resume_strengths = [
+            skill for skill in resume_skill_keys if skill not in role_skill_set and skill not in profile_role_strengths
+        ]
+
+        transferable = [skill for skill in GENERIC_TRANSFERABLE_SKILLS if skill in resume_text.lower()]
+        if not transferable:
+            transferable = GENERIC_TRANSFERABLE_SKILLS[:3]
+
+        strengths: List[str] = []
+        for canonical in resume_role_strengths + profile_role_strengths:
+            strengths.append(role_skill_by_canonical.get(canonical, self._display_skill(canonical)))
+
+        for canonical in additional_resume_strengths[:6]:
+            strengths.append(
+                resume_skill_display_by_canonical.get(canonical)
+                or profile_skill_display_by_canonical.get(canonical)
+                or self._display_skill(canonical)
+            )
+
+        strengths.extend(skill.title() for skill in transferable)
+        strengths = list(dict.fromkeys([item.strip() for item in strengths if item.strip()]))[:14]
+
+        missing_skills = [
+            role_skill_by_canonical[skill]
+            for skill in role_skill_set
+            if skill not in resume_role_strengths and skill not in profile_role_strengths
+        ]
 
         # Semantic similarity compares full resume context against target role skill profile.
         embeddings = self.embedding_service.encode([resume_text, " ".join(role_skills)])
@@ -210,19 +471,18 @@ class AnalyzePipeline:
         else:
             match_score = heuristic_score
 
-        transferable = [skill for skill in GENERIC_TRANSFERABLE_SKILLS if skill in resume_text.lower()]
-        if not transferable:
-            transferable = GENERIC_TRANSFERABLE_SKILLS[:3]
-
         roadmap = self._build_roadmap(missing_skills, target_role, level)
 
         certs = self._extract_resume_certifications(resume_text, role_key)
+        awards = self._extract_awards(sections["awards"])
+        featured_project = self._extract_best_project(sections["projects"])
+        featured_experiences = self._extract_best_experiences(sections["experience"])
 
         # Parsed structure is persisted in PostgreSQL JSONB for dashboard rendering.
         parsed_resume = {
             "profession": profession,
             "experienceLevel": level,
-            "skillsExtracted": extracted_skills,
+            "skillsExtracted": list(dict.fromkeys(section_skills + extracted_skills)),
             "skillsFromResumeCount": len(resume_role_strengths),
             "skillsFromProfileCount": len(profile_role_strengths),
             "wordCount": len(resume_text.split()),
@@ -232,6 +492,9 @@ class AnalyzePipeline:
             "targetCategory": target_category,
             "targetCategoryProbability": round(target_probability, 4) if target_probability is not None else None,
             "certificationsDetected": certs,
+            "awardsDetected": awards,
+            "featuredProject": featured_project,
+            "featuredExperiences": featured_experiences,
             "modelUsed": "resume_classifier.joblib" if self.classifier_bundle else "heuristic"
         }
 

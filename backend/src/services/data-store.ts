@@ -196,6 +196,64 @@ export async function createOrUpdateUserProfile(input: {
   };
 }
 
+export async function upsertUserCredentials(input: {
+  fullName: string;
+  email: string;
+  password: string;
+}): Promise<UserRecord> {
+  if (useMemoryDb()) {
+    const existing = await findUserByEmail(input.email);
+
+    if (existing) {
+      const next: UserRecord = {
+        ...existing,
+        fullName: input.fullName,
+        password: input.password
+      };
+      inMemoryUsers.set(existing.id, next);
+      return next;
+    }
+
+    const id = randomUUID();
+    const created: UserRecord = {
+      id,
+      fullName: input.fullName,
+      email: input.email,
+      password: input.password,
+      skills: []
+    };
+    inMemoryUsers.set(id, created);
+    inMemoryUsersByEmail.set(input.email, id);
+    return created;
+  }
+
+  const user = await prisma.user.upsert({
+    where: { email: input.email },
+    update: {
+      fullName: input.fullName,
+      password: input.password
+    },
+    create: {
+      fullName: input.fullName,
+      email: input.email,
+      password: input.password,
+      skills: []
+    }
+  });
+
+  return {
+    id: user.id,
+    fullName: user.fullName ?? undefined,
+    email: user.email,
+    password: user.password ?? undefined,
+    profession: user.profession ?? undefined,
+    targetRole: user.targetRole ?? undefined,
+    level: user.level ?? undefined,
+    skills: user.skills,
+    goal: user.goal ?? undefined
+  };
+}
+
 export async function updateUserOnboarding(
   userId: string,
   payload: { profession: string; targetRole: string; level: string; skills: string[]; goal?: string }

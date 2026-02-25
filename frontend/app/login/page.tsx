@@ -21,12 +21,7 @@ const signUpSchema = z
     fullName: z.string().min(2, "Full name is required"),
     email: z.string().email("Enter a valid email"),
     password: z.string().min(8, "Minimum 8 characters"),
-    confirmPassword: z.string().min(8, "Minimum 8 characters"),
-    profession: z.string().min(2, "Profession is required"),
-    targetRole: z.string().min(2, "Target role is required"),
-    experienceLevel: z.string().min(1, "Experience level is required"),
-    skills: z.string().optional(),
-    careerGoal: z.string().optional()
+    confirmPassword: z.string().min(8, "Minimum 8 characters")
   })
   .refine((values) => values.password === values.confirmPassword, {
     message: "Passwords do not match",
@@ -61,7 +56,7 @@ export default function LoginPage() {
     try {
       const response = await login(values.email, values.password);
       localStorage.setItem("resume-analyzer-token", response.token);
-      router.push("/onboarding");
+      router.push("/dashboard");
     } catch {
       setShake(true);
       setTimeout(() => setShake(false), 500);
@@ -73,21 +68,13 @@ export default function LoginPage() {
       const response = await register({
         fullName: values.fullName,
         email: values.email,
-        password: values.password,
-        profession: values.profession,
-        targetRole: values.targetRole,
-        level: values.experienceLevel,
-        skills: (values.skills || "")
-          .split(",")
-          .map((skill) => skill.trim())
-          .filter(Boolean),
-        goal: values.careerGoal
+        password: values.password
       });
 
       localStorage.setItem("resume-analyzer-token", response.token);
       localStorage.setItem("resume-analyzer-name", values.fullName);
 
-      router.push("/dashboard");
+      router.push("/onboarding");
     } catch {
       setShake(true);
       setTimeout(() => setShake(false), 500);
@@ -157,7 +144,7 @@ export default function LoginPage() {
               >
                 <div>
                   <h2 className="text-2xl font-semibold">Create your account</h2>
-                  <p className="text-sm text-muted-foreground">Set up your profile to get personalized analysis.</p>
+                  <p className="text-sm text-muted-foreground">Create account first. We’ll ask career questions right after signup.</p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
@@ -171,11 +158,6 @@ export default function LoginPage() {
                     {signUpErrors.email && <p className="text-xs text-red-500">{signUpErrors.email.message}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Profession</label>
-                    <Input {...registerSignUp("profession")} placeholder="Software Engineer" />
-                    {signUpErrors.profession && <p className="text-xs text-red-500">{signUpErrors.profession.message}</p>}
-                  </div>
-                  <div className="space-y-2">
                     <label className="text-sm font-medium">Password</label>
                     <Input type="password" {...registerSignUp("password")} placeholder="••••••••" />
                     {signUpErrors.password && <p className="text-xs text-red-500">{signUpErrors.password.message}</p>}
@@ -184,24 +166,6 @@ export default function LoginPage() {
                     <label className="text-sm font-medium">Confirm Password</label>
                     <Input type="password" {...registerSignUp("confirmPassword")} placeholder="••••••••" />
                     {signUpErrors.confirmPassword && <p className="text-xs text-red-500">{signUpErrors.confirmPassword.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Target Role</label>
-                    <Input {...registerSignUp("targetRole")} placeholder="Senior Backend Engineer" />
-                    {signUpErrors.targetRole && <p className="text-xs text-red-500">{signUpErrors.targetRole.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Experience Level</label>
-                    <Input {...registerSignUp("experienceLevel")} placeholder="Entry / Mid / Senior" />
-                    {signUpErrors.experienceLevel && <p className="text-xs text-red-500">{signUpErrors.experienceLevel.message}</p>}
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <label className="text-sm font-medium">Skills (optional)</label>
-                    <Input {...registerSignUp("skills")} placeholder="React, Node.js, SQL" />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <label className="text-sm font-medium">Career Goal (optional)</label>
-                    <Input {...registerSignUp("careerGoal")} placeholder="Lead backend engineering in a product company" />
                   </div>
                 </div>
                 <Button className="w-full py-6" disabled={isSigningUp}>Create Account</Button>

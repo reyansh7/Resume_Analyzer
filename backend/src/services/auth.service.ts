@@ -1,6 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import jwt from "jsonwebtoken";
-import { createOrUpdateUserProfile, findUserByEmail, upsertUserByEmail } from "./data-store";
+import { createOrUpdateUserProfile, findUserByEmail, upsertUserByEmail, upsertUserCredentials } from "./data-store";
 import { env } from "../utils/env";
 
 type PublicUser = {
@@ -32,7 +32,11 @@ function verifyPassword(password: string, stored: string) {
 }
 
 function createAuthToken(user: { id: string; email: string }) {
-  return jwt.sign({ userId: user.id, email: user.email }, env.JWT_SECRET, { expiresIn: "7d" });
+  const expiresIn: jwt.SignOptions["expiresIn"] = env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"];
+
+  return jwt.sign({ userId: user.id, email: user.email }, env.JWT_SECRET, {
+    expiresIn
+  });
 }
 
 function toPublicUser(user: {
@@ -90,6 +94,21 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 export async function registerWithProfile(input: {
+  fullName: string;
+  email: string;
+  password: string;
+}) {
+  const user = await upsertUserCredentials({
+    fullName: input.fullName,
+    email: input.email,
+    password: hashPassword(input.password)
+  });
+
+  const token = createAuthToken(user);
+  return { token, user: toPublicUser(user) };
+}
+
+export async function registerWithFullProfile(input: {
   fullName: string;
   email: string;
   password: string;

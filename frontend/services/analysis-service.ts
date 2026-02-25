@@ -16,6 +16,9 @@ export type AnalysisResult = {
     targetCategory?: string | null;
     targetCategoryProbability?: number | null;
     certificationsDetected?: string[];
+    awardsDetected?: string[];
+    featuredProject?: string | null;
+    featuredExperiences?: string[];
     modelUsed?: string;
   };
   strengths: string[];

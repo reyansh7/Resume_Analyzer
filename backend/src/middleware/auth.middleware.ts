@@ -10,17 +10,19 @@ declare module "express-serve-static-core" {
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+  const headerToken = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
+  const cookieToken = req.cookies?.[env.JWT_COOKIE_NAME] as string | undefined;
+  const token = headerToken ?? cookieToken;
 
-  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "No token" });
+  }
 
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string; email: string };
     req.user = payload;
     next();
   } catch {
-    return res.status(401).json({ message: "Invalid token" });
+    return res.status(403).json({ message: "Invalid token" });
   }
 }

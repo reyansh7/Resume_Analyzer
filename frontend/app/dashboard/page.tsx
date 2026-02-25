@@ -25,7 +25,13 @@ const demo = {
     predictedCategory: "INFORMATION-TECHNOLOGY",
     targetCategory: "INFORMATION-TECHNOLOGY",
     targetCategoryProbability: 0.82,
-    certificationsDetected: ["AWS Developer Associate"]
+    certificationsDetected: ["AWS Developer Associate"],
+    awardsDetected: ["Gold Medal — National-level Competition"],
+    featuredProject: "Next-Word Prediction using LSTM & GRU — Built and trained sequence models on Hamlet dataset.",
+    featuredExperiences: [
+      "Led creative strategy for major hackathon and conference events.",
+      "Coordinated expert sessions and managed article-writing operations."
+    ]
   },
   strengths: ["React", "TypeScript", "REST API Design"],
   gaps: ["Docker", "Kubernetes", "MLOps", "System Design"],
@@ -74,6 +80,12 @@ export default function DashboardPage() {
     return mutation.data ? [] : result.certs;
   }, [mutation.data, result.certs, result.parsedResume?.certificationsDetected]);
 
+  const visibleAwardsAndCertifications = useMemo(() => {
+    const awards = Array.isArray(result.parsedResume?.awardsDetected) ? result.parsedResume.awardsDetected : [];
+    const certs = Array.isArray(visibleCertifications) ? visibleCertifications : [];
+    return Array.from(new Set([...awards, ...certs]));
+  }, [result.parsedResume?.awardsDetected, visibleCertifications]);
+
   return (
     <main>
       <Navbar />
@@ -118,7 +130,7 @@ export default function DashboardPage() {
 
           {!mutation.isPending && tab === "overview" && (
             <>
-              <div className={`grid gap-5 ${visibleCertifications.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+              <div className={`grid gap-5 ${visibleAwardsAndCertifications.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 <Card>
                   <p className="text-sm font-medium text-muted-foreground">Strengths</p>
                   <ul className="mt-3 space-y-2">{result.strengths.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
@@ -127,13 +139,34 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-muted-foreground">Transferable Skills</p>
                   <ul className="mt-3 space-y-2">{result.transferable.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
                 </Card>
-                {visibleCertifications.length > 0 && (
+                {visibleAwardsAndCertifications.length > 0 && (
                   <Card>
-                    <p className="text-sm font-medium text-muted-foreground">Certifications (Detected in Resume)</p>
-                    <ul className="mt-3 space-y-2">{visibleCertifications.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
+                    <p className="text-sm font-medium text-muted-foreground">Awards & Certifications</p>
+                    <ul className="mt-3 space-y-2">{visibleAwardsAndCertifications.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
                   </Card>
                 )}
               </div>
+
+              {(result.parsedResume?.featuredProject || (result.parsedResume?.featuredExperiences && result.parsedResume.featuredExperiences.length > 0)) && (
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  {result.parsedResume?.featuredProject && (
+                    <Card>
+                      <p className="text-sm font-medium text-muted-foreground">Highlighted Project</p>
+                      <p className="mt-3 rounded-lg bg-secondary/70 px-3 py-2 text-sm leading-relaxed">{result.parsedResume.featuredProject}</p>
+                    </Card>
+                  )}
+                  {result.parsedResume?.featuredExperiences && result.parsedResume.featuredExperiences.length > 0 && (
+                    <Card>
+                      <p className="text-sm font-medium text-muted-foreground">Highlighted Experiences</p>
+                      <ul className="mt-3 space-y-2">
+                        {result.parsedResume.featuredExperiences.map((item) => (
+                          <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2 text-sm">{item}</li>
+                        ))}
+                      </ul>
+                    </Card>
+                  )}
+                </div>
+              )}
 
               <Card className="mt-5">
                 <p className="text-sm font-medium text-muted-foreground">Resume Snapshot</p>

@@ -19,6 +19,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(10),
+  JWT_EXPIRES_IN: z.string().default("1d"),
+  JWT_COOKIE_NAME: z.string().default("access_token"),
   CORS_ORIGIN: z.string().url(),
   ML_SERVICE_URL: z.string().url(),
   USE_IN_MEMORY_DB: booleanFromEnv.default(false)
