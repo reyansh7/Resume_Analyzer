@@ -7,10 +7,12 @@ type DashboardChartsProps = {
   strengths: string[];
   gaps: string[];
   matchScore: number;
+  extractedSkills?: string[];
 };
 
-function toRadarBuckets(strengths: string[], matchScore: number) {
-  const lower = strengths.map((item) => item.toLowerCase());
+function toRadarBuckets(strengths: string[], extractedSkills: string[], matchScore: number) {
+  const normalizedScore = Math.max(0, Math.min(100, Number.isFinite(matchScore) ? matchScore : 0));
+  const lower = [...strengths, ...extractedSkills].map((item) => item.toLowerCase());
 
   const has = (keywords: string[]) => keywords.some((keyword) => lower.some((item) => item.includes(keyword)));
   const bump = (condition: boolean, amount: number) => (condition ? amount : 0);
@@ -18,37 +20,43 @@ function toRadarBuckets(strengths: string[], matchScore: number) {
   return [
     {
       skill: "Frontend",
-      score: Math.min(100, Math.round(matchScore * 0.45 + bump(has(["react", "frontend", "typescript"]), 28)))
+      score: Math.min(100, Math.round(normalizedScore * 0.45 + bump(has(["react", "frontend", "typescript"]), 28)))
     },
     {
       skill: "Backend",
-      score: Math.min(100, Math.round(matchScore * 0.5 + bump(has(["node", "python", "api", "sql"]), 30)))
+      score: Math.min(100, Math.round(normalizedScore * 0.5 + bump(has(["node", "python", "api", "sql"]), 30)))
     },
     {
       skill: "System",
-      score: Math.min(100, Math.round(matchScore * 0.4 + bump(has(["system design", "architecture"]), 35)))
+      score: Math.min(100, Math.round(normalizedScore * 0.4 + bump(has(["system design", "architecture"]), 35)))
     },
     {
       skill: "Cloud",
-      score: Math.min(100, Math.round(matchScore * 0.35 + bump(has(["aws", "azure", "gcp", "docker", "kubernetes"]), 32)))
+      score: Math.min(100, Math.round(normalizedScore * 0.35 + bump(has(["aws", "azure", "gcp", "docker", "kubernetes"]), 32)))
     },
     {
       skill: "Data",
-      score: Math.min(100, Math.round(matchScore * 0.3 + bump(has(["sql", "analytics", "pandas"]), 28)))
+      score: Math.min(100, Math.round(normalizedScore * 0.3 + bump(has(["sql", "analytics", "pandas"]), 28)))
     }
   ];
 }
 
 function toGapBars(gaps: string[]) {
-  return gaps.slice(0, 6).map((skill, index) => ({
+  const sanitized = gaps.filter((item) => item.trim().length > 0).slice(0, 6);
+  if (sanitized.length === 0) {
+    return [{ skill: "No critical gaps", gap: 0 }];
+  }
+
+  return sanitized.map((skill, index) => ({
     skill: skill.length > 16 ? `${skill.slice(0, 16)}…` : skill,
-    gap: Math.max(8, 36 - index * 4)
+    gap: Math.max(15, 92 - index * 12)
   }));
 }
 
-export function DashboardCharts({ strengths, gaps, matchScore }: DashboardChartsProps) {
-  const radarData = useMemo(() => toRadarBuckets(strengths, matchScore), [strengths, matchScore]);
+export function DashboardCharts({ strengths, gaps, matchScore, extractedSkills = [] }: DashboardChartsProps) {
+  const radarData = useMemo(() => toRadarBuckets(strengths, extractedSkills, matchScore), [strengths, extractedSkills, matchScore]);
   const gapData = useMemo(() => toGapBars(gaps), [gaps]);
+  const hasGapData = gapData.some((item) => item.gap > 0);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -69,11 +77,12 @@ export function DashboardCharts({ strengths, gaps, matchScore }: DashboardCharts
           <BarChart data={gapData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="skill" />
-            <YAxis />
+            <YAxis domain={[0, 100]} />
             <Tooltip />
             <Bar dataKey="gap" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
+        {!hasGapData && <p className="mt-1 text-xs text-muted-foreground">No high-priority skill gaps detected for this profile.</p>}
       </div>
     </div>
   );

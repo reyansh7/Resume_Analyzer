@@ -10,7 +10,8 @@ declare module "express-serve-static-core" {
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
-  const headerToken = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
+  const rawHeaderToken = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
+  const headerToken = rawHeaderToken && rawHeaderToken.trim() !== "" ? rawHeaderToken : undefined;
   const cookieToken = req.cookies?.[env.JWT_COOKIE_NAME] as string | undefined;
   const token = headerToken ?? cookieToken;
 

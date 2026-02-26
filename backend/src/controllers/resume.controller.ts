@@ -1,20 +1,24 @@
 import { Request, Response } from "express";
-import pdfParse from "pdf-parse";
-import { createAnalysis, findUserById } from "../services/data-store";
+import { createAnalysis, findUserById, upsertUserByEmail } from "../services/data-store";
 import { analyzeResumeWithMl } from "../services/ml.service";
+import { extractResumeText } from "../services/resume-text.service";
 
 export async function analyzeResumeController(req: Request, res: Response) {
   const userId = req.user?.userId;
+  const userEmail = req.user?.email;
   if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
   const file = req.file;
   if (!file) return res.status(400).json({ message: "Resume file is required" });
 
-  const user = await findUserById(userId);
-  if (!user) return res.status(404).json({ message: "User not found" });
+  let user = await findUserById(userId);
+  if (!user && userEmail) {
+    user = await upsertUserByEmail(userEmail);
+  }
+  if (!user) return res.status(404).json({ message: "User not found. Please login again." });
 
-  const parsedPdf = await pdfParse(file.buffer);
-  const resumeText = parsedPdf.text || "";
+  const extracted = await extractResumeText(file.buffer);
+  const resumeText = extracted.text;
 
   const mlResult = await analyzeResumeWithMl({
     resumeText,
@@ -25,7 +29,7 @@ export async function analyzeResumeController(req: Request, res: Response) {
   });
 
   const analysis = await createAnalysis({
-    userId,
+    userId: user.id,
     fileName: file.originalname,
     resumeText,
     parsedResume: mlResult.parsedResume,

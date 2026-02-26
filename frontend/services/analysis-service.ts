@@ -18,7 +18,10 @@ export type AnalysisResult = {
     certificationsDetected?: string[];
     awardsDetected?: string[];
     featuredProject?: string | null;
+    featuredProjects?: string[];
     featuredExperiences?: string[];
+    roadmapSource?: "gemini" | "local";
+    roadmapModel?: string | null;
     modelUsed?: string;
   };
   strengths: string[];

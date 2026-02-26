@@ -1,167 +1,302 @@
 {
-  "accuracy": 0.7309562398703403,
+  "accuracy": 0.7409420289855072,
+  "balanced_accuracy": 0.7409420289855072,
+  "macro_f1": 0.7324783577029139,
   "classification_report": {
     "ACCOUNTANT": {
-      "precision": 0.8085106382978723,
-      "recall": 0.8085106382978723,
-      "f1-score": 0.8085106382978723,
-      "support": 47.0
+      "precision": 0.8076923076923077,
+      "recall": 0.9130434782608695,
+      "f1-score": 0.8571428571428571,
+      "support": 23.0
     },
     "ADVOCATE": {
-      "precision": 0.75,
-      "recall": 0.7021276595744681,
-      "f1-score": 0.7252747252747253,
-      "support": 47.0
+      "precision": 0.7777777777777778,
+      "recall": 0.6086956521739131,
+      "f1-score": 0.6829268292682927,
+      "support": 23.0
     },
     "AGRICULTURE": {
-      "precision": 0.92,
-      "recall": 0.92,
-      "f1-score": 0.92,
-      "support": 25.0
+      "precision": 0.8,
+      "recall": 0.6956521739130435,
+      "f1-score": 0.7441860465116279,
+      "support": 23.0
     },
     "APPAREL": {
-      "precision": 0.8333333333333334,
-      "recall": 0.6410256410256411,
-      "f1-score": 0.7246376811594203,
-      "support": 39.0
+      "precision": 0.5555555555555556,
+      "recall": 0.43478260869565216,
+      "f1-score": 0.4878048780487805,
+      "support": 23.0
     },
     "ARTS": {
-      "precision": 0.8666666666666667,
-      "recall": 0.6341463414634146,
-      "f1-score": 0.7323943661971831,
-      "support": 41.0
+      "precision": 0.7692307692307693,
+      "recall": 0.43478260869565216,
+      "f1-score": 0.5555555555555556,
+      "support": 23.0
     },
     "AUTOMOBILE": {
-      "precision": 0.9230769230769231,
-      "recall": 0.8571428571428571,
-      "f1-score": 0.8888888888888888,
-      "support": 14.0
+      "precision": 1.0,
+      "recall": 0.8695652173913043,
+      "f1-score": 0.9302325581395349,
+      "support": 23.0
     },
     "AVIATION": {
-      "precision": 0.9117647058823529,
-      "recall": 0.8378378378378378,
-      "f1-score": 0.8732394366197183,
-      "support": 37.0
+      "precision": 0.8095238095238095,
+      "recall": 0.7391304347826086,
+      "f1-score": 0.7727272727272727,
+      "support": 23.0
     },
     "BANKING": {
-      "precision": 0.5833333333333334,
-      "recall": 0.6086956521739131,
-      "f1-score": 0.5957446808510638,
+      "precision": 0.76,
+      "recall": 0.8260869565217391,
+      "f1-score": 0.7916666666666666,
       "support": 23.0
     },
     "BPO": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1-score": 0.0,
-      "support": 4.0
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 23.0
     },
     "BUSINESS-DEVELOPMENT": {
-      "precision": 0.6060606060606061,
-      "recall": 0.8333333333333334,
-      "f1-score": 0.7017543859649122,
-      "support": 24.0
+      "precision": 0.64,
+      "recall": 0.6956521739130435,
+      "f1-score": 0.6666666666666666,
+      "support": 23.0
     },
     "CHEF": {
-      "precision": 0.7407407407407407,
-      "recall": 0.8333333333333334,
-      "f1-score": 0.7843137254901961,
-      "support": 24.0
+      "precision": 0.84,
+      "recall": 0.9130434782608695,
+      "f1-score": 0.875,
+      "support": 23.0
     },
     "CONSTRUCTION": {
-      "precision": 0.7727272727272727,
-      "recall": 0.7391304347826086,
-      "f1-score": 0.7555555555555555,
+      "precision": 0.8,
+      "recall": 0.8695652173913043,
+      "f1-score": 0.8333333333333334,
       "support": 23.0
     },
     "CONSULTANT": {
-      "precision": 0.6666666666666666,
+      "precision": 0.6,
       "recall": 0.2608695652173913,
-      "f1-score": 0.375,
+      "f1-score": 0.36363636363636365,
       "support": 23.0
     },
     "DESIGNER": {
-      "precision": 0.8636363636363636,
-      "recall": 0.9047619047619048,
-      "f1-score": 0.8837209302325582,
-      "support": 21.0
+      "precision": 0.84,
+      "recall": 0.9130434782608695,
+      "f1-score": 0.875,
+      "support": 23.0
     },
     "DIGITAL-MEDIA": {
-      "precision": 0.4583333333333333,
-      "recall": 0.5789473684210527,
-      "f1-score": 0.5116279069767442,
-      "support": 19.0
+      "precision": 0.7272727272727273,
+      "recall": 0.6956521739130435,
+      "f1-score": 0.7111111111111111,
+      "support": 23.0
     },
     "ENGINEERING": {
-      "precision": 0.8333333333333334,
-      "recall": 0.8333333333333334,
-      "f1-score": 0.8333333333333334,
-      "support": 24.0
+      "precision": 0.6896551724137931,
+      "recall": 0.8695652173913043,
+      "f1-score": 0.7692307692307693,
+      "support": 23.0
     },
     "FINANCE": {
-      "precision": 0.6521739130434783,
-      "recall": 0.625,
-      "f1-score": 0.6382978723404256,
-      "support": 24.0
+      "precision": 0.6153846153846154,
+      "recall": 0.6956521739130435,
+      "f1-score": 0.6530612244897959,
+      "support": 23.0
     },
     "FITNESS": {
-      "precision": 0.8823529411764706,
-      "recall": 0.625,
-      "f1-score": 0.7317073170731707,
-      "support": 24.0
+      "precision": 0.6666666666666666,
+      "recall": 0.6086956521739131,
+      "f1-score": 0.6363636363636364,
+      "support": 23.0
     },
     "HEALTHCARE": {
-      "precision": 0.5416666666666666,
-      "recall": 0.5652173913043478,
-      "f1-score": 0.5531914893617021,
+      "precision": 0.6538461538461539,
+      "recall": 0.7391304347826086,
+      "f1-score": 0.6938775510204082,
       "support": 23.0
     },
     "HR": {
-      "precision": 0.8695652173913043,
-      "recall": 0.9090909090909091,
-      "f1-score": 0.8888888888888888,
-      "support": 22.0
+      "precision": 0.84,
+      "recall": 0.9130434782608695,
+      "f1-score": 0.875,
+      "support": 23.0
     },
     "INFORMATION-TECHNOLOGY": {
-      "precision": 0.6,
-      "recall": 0.875,
-      "f1-score": 0.711864406779661,
-      "support": 24.0
+      "precision": 0.5862068965517241,
+      "recall": 0.7391304347826086,
+      "f1-score": 0.6538461538461539,
+      "support": 23.0
     },
     "PUBLIC-RELATIONS": {
-      "precision": 0.8,
-      "recall": 0.7272727272727273,
-      "f1-score": 0.7619047619047619,
-      "support": 22.0
+      "precision": 0.6774193548387096,
+      "recall": 0.9130434782608695,
+      "f1-score": 0.7777777777777778,
+      "support": 23.0
     },
     "SALES": {
-      "precision": 0.41025641025641024,
-      "recall": 0.6956521739130435,
-      "f1-score": 0.5161290322580645,
+      "precision": 0.5454545454545454,
+      "recall": 0.5217391304347826,
+      "f1-score": 0.5333333333333333,
       "support": 23.0
     },
     "TEACHER": {
-      "precision": 0.7142857142857143,
-      "recall": 1.0,
-      "f1-score": 0.8333333333333334,
-      "support": 20.0
+      "precision": 0.7777777777777778,
+      "recall": 0.9130434782608695,
+      "f1-score": 0.84,
+      "support": 23.0
     },
-    "accuracy": 0.7309562398703403,
+    "accuracy": 0.7409420289855072,
     "macro avg": {
-      "precision": 0.708686865829535,
-      "recall": 0.7089762125949995,
-      "f1-score": 0.6978880565325909,
-      "support": 617.0
+      "precision": 0.7408110054161222,
+      "recall": 0.7409420289855072,
+      "f1-score": 0.7324783577029139,
+      "support": 552.0
     },
     "weighted avg": {
-      "precision": 0.7467931690089893,
-      "recall": 0.7309562398703403,
-      "f1-score": 0.728240248681239,
-      "support": 617.0
+      "precision": 0.7408110054161221,
+      "recall": 0.7409420289855072,
+      "f1-score": 0.732478357702914,
+      "support": 552.0
     }
   },
-  "train_size": 2466,
-  "test_size": 617,
+  "train_size": 2208,
+  "test_size": 552,
   "csv_records": 2483,
   "pdf_records": 600,
-  "total_records": 3083
+  "raw_total_records": 3083,
+  "clean_total_records": 2590,
+  "balanced_total_records": 2760,
+  "random_state": 42,
+  "test_size_ratio": 0.2,
+  "stratified_split": true,
+  "balance_strategy": "hybrid",
+  "target_per_class": 115,
+  "min_text_chars": 120,
+  "near_duplicate_mode": "signature",
+  "model_search": "linear-svc",
+  "selected_model": "linear_svc__word_12__c2.0",
+  "cv_folds": 3,
+  "max_candidates": 12,
+  "search_results": [
+    {
+      "name": "linear_svc__word_12__c2.0",
+      "cv_macro_f1": 0.7181772679064574,
+      "cv_std": 0.009507675785809728
+    },
+    {
+      "name": "linear_svc__word_12__c1.0",
+      "cv_macro_f1": 0.7139619603755961,
+      "cv_std": 0.005750521144412542
+    },
+    {
+      "name": "linear_svc__word_13__c2.0",
+      "cv_macro_f1": 0.7087094277078889,
+      "cv_std": 0.008536419168681909
+    },
+    {
+      "name": "linear_svc__word_13__c1.0",
+      "cv_macro_f1": 0.7078784547006179,
+      "cv_std": 0.010923159228517105
+    },
+    {
+      "name": "linear_svc__word_12__c0.5",
+      "cv_macro_f1": 0.7064519832521333,
+      "cv_std": 0.0031592720531874777
+    },
+    {
+      "name": "linear_svc__char_46__c2.0",
+      "cv_macro_f1": 0.705236137733034,
+      "cv_std": 0.007076319438376233
+    },
+    {
+      "name": "linear_svc__char_46__c1.0",
+      "cv_macro_f1": 0.7051775417891877,
+      "cv_std": 0.00815282104111461
+    },
+    {
+      "name": "linear_svc__char_35__c2.0",
+      "cv_macro_f1": 0.7002379785458333,
+      "cv_std": 0.007407713262186893
+    },
+    {
+      "name": "linear_svc__char_35__c1.0",
+      "cv_macro_f1": 0.6999846828056961,
+      "cv_std": 0.010045793061544727
+    },
+    {
+      "name": "linear_svc__word_13__c0.5",
+      "cv_macro_f1": 0.6989743590088163,
+      "cv_std": 0.006989421906824859
+    },
+    {
+      "name": "linear_svc__char_46__c0.5",
+      "cv_macro_f1": 0.6937919674323672,
+      "cv_std": 0.011549666562795602
+    },
+    {
+      "name": "linear_svc__char_35__c0.5",
+      "cv_macro_f1": 0.6932355621471517,
+      "cv_std": 0.016624754554258853
+    }
+  ],
+  "cleaning": {
+    "removed_too_short": 0,
+    "removed_exact_duplicates": 102,
+    "removed_conflicting_labels": 0,
+    "removed_near_duplicates": 391
+  },
+  "class_counts_before": {
+    "HR": 110,
+    "DESIGNER": 107,
+    "INFORMATION-TECHNOLOGY": 120,
+    "TEACHER": 102,
+    "ADVOCATE": 134,
+    "BUSINESS-DEVELOPMENT": 119,
+    "HEALTHCARE": 115,
+    "FITNESS": 117,
+    "AGRICULTURE": 75,
+    "BPO": 22,
+    "SALES": 116,
+    "CONSULTANT": 115,
+    "DIGITAL-MEDIA": 96,
+    "AUTOMOBILE": 39,
+    "CHEF": 118,
+    "FINANCE": 117,
+    "APPAREL": 115,
+    "ENGINEERING": 118,
+    "ACCOUNTANT": 140,
+    "CONSTRUCTION": 112,
+    "PUBLIC-RELATIONS": 111,
+    "BANKING": 115,
+    "ARTS": 129,
+    "AVIATION": 128
+  },
+  "class_counts_after": {
+    "ACCOUNTANT": 115,
+    "ADVOCATE": 115,
+    "AGRICULTURE": 115,
+    "APPAREL": 115,
+    "ARTS": 115,
+    "AUTOMOBILE": 115,
+    "AVIATION": 115,
+    "BANKING": 115,
+    "BPO": 115,
+    "BUSINESS-DEVELOPMENT": 115,
+    "CHEF": 115,
+    "CONSTRUCTION": 115,
+    "CONSULTANT": 115,
+    "DESIGNER": 115,
+    "DIGITAL-MEDIA": 115,
+    "ENGINEERING": 115,
+    "FINANCE": 115,
+    "FITNESS": 115,
+    "HEALTHCARE": 115,
+    "HR": 115,
+    "INFORMATION-TECHNOLOGY": 115,
+    "PUBLIC-RELATIONS": 115,
+    "SALES": 115,
+    "TEACHER": 115
+  }
 }

@@ -20,6 +20,12 @@ services:
       dockerfile: Dockerfile
     container_name: resume-analyzer-ml
     restart: unless-stopped
+    environment:
+      USE_GEMINI_ROADMAP: ${USE_GEMINI_ROADMAP:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      GEMINI_TIMEOUT_MS: ${GEMINI_TIMEOUT_MS:-8000}
+      GEMINI_MAX_RETRIES: ${GEMINI_MAX_RETRIES:-1}
     ports:
       - "8000:8000"
 

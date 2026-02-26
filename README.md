@@ -1,121 +1,147 @@
-# Resume Analyzer (Production-Ready AI SaaS Skeleton)
+# Resume Analyzer
 
-Modern AI-powered resume and skill-gap analysis platform built with separated microservices:
+AI-powered resume analysis app with three services:
 
-- `frontend/` → Next.js 14 + TypeScript + Tailwind + Framer Motion + GSAP + TanStack Query
-- `backend/` → Express + Prisma + Zod + JWT + Multer
-- `ml-model/` → FastAPI + spaCy + Sentence Transformers + scikit-learn cosine similarity
+- `frontend/`: Next.js app (port `3000`)
+- `backend/`: Express + Prisma API (port `8080`)
+- `ml-model/`: FastAPI ML service (port `8000`)
 
-## Architecture
+---
 
-```text
-Frontend -> Backend -> ML Service -> Backend -> PostgreSQL -> Frontend
-```
+## Prerequisites
 
-- Frontend never calls ML directly.
-- Backend orchestrates auth, validation, extraction, ML calls, and persistence.
-- Parsed resume + structured analysis are stored in PostgreSQL via Prisma (`Json` fields).
+Install these first:
 
-## Implemented UX Flow
+- Node.js `20+` and npm
+- Python `3.11+`
+- Docker Desktop (only if using Docker run)
+- PostgreSQL `16+` (only if running locally without Docker DB)
 
-1. Landing page with animated hero reveal, parallax sections, counters, smooth transitions.
-2. Login page with split-screen design, OAuth placeholders, focus/hover micro-interactions, shake-on-error.
-3. Onboarding multi-step animated form with progress bar and profession/experience/skills capture.
-4. Resume upload with drag-and-drop, hover glow, loading shimmer.
-5. Dashboard with animated match score ring, staggered sections, timeline roadmap, and charts.
+---
 
-## Folder Structure
+## Option A: Run everything with Docker (recommended)
 
-```text
-Resume_Analyzer/
-├── frontend/
-├── backend/
-├── ml-model/
-├── docker-compose.yml
-└── README.md
-```
-
-## Local Development (without Docker)
-
-### 1) Backend
-
-```bash
-cd backend
-cp .env.example .env
-npm install
-npx prisma generate
-# Optional first migration
-npx prisma migrate dev --name init
-npm run dev
-```
-
-### 2) ML Service
-
-```bash
-cd ml-model
-python -m venv .venv
-. .venv/Scripts/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### 2.1) Train Baseline Resume Classifier
-
-This trains a first-pass category model using both:
-- `ml-model/Resume/Resume.csv` (`Resume_str` + `Category`)
-- `ml-model/data/<CATEGORY>/*.pdf`
-
-```bash
-cd ml-model
-python -m venv .venv
-. .venv/Scripts/activate
-pip install -r requirements.txt
-python scripts/train_baseline.py
-```
-
-Optional faster run (subset PDFs):
-
-```bash
-python scripts/train_baseline.py --max-pdfs 600
-```
-
-Outputs:
-- `ml-model/saved_models/resume_classifier.joblib`
-- `ml-model/saved_models/resume_classifier_metrics.json`
-
-### 3) Frontend
-
-```bash
-cd frontend
-cp .env.example .env.local
-npm install
-npm run dev
-```
-
-## Docker
+From the project root:
 
 ```bash
 docker compose up --build
 ```
 
 Services:
+
 - Frontend: `http://localhost:3000`
-- Backend: `http://localhost:8080`
-- ML Service: `http://localhost:8000`
+- Backend API: `http://localhost:8080`
+- Backend health: `http://localhost:8080/health`
+- ML service health: `http://localhost:8000/health`
 - PostgreSQL: `localhost:5432`
 
-## Security and Engineering Notes
+To stop:
 
-- JWT auth middleware protects onboarding and analysis endpoints.
-- Zod validation used in auth/onboarding payload handling.
-- File uploads restricted to PDF and size-limited.
-- CORS restricted via `CORS_ORIGIN` environment variable.
-- Modular architecture with separated controllers/routes/services/pipelines.
+```bash
+docker compose down
+```
 
-## Next Recommended Enhancements
+---
 
-- Replace demo OAuth buttons with real Google + LinkedIn providers.
-- Add password hashing and full credential auth flow.
-- Add Redis caching and queue-based async analysis for heavy loads.
-- Add test suites (unit + integration + e2e).
-- Add CI/CD workflows and Sentry monitoring.
+## Option B: Run locally (without Docker)
+
+Use **three terminals** (frontend, backend, ml-model).
+
+### 1) Start PostgreSQL
+
+Make sure PostgreSQL is running and a database named `resume_analyzer` exists.
+
+### 2) Run ML service
+
+```bash
+cd ml-model
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+Optional env file:
+
+```bash
+copy .env.example .env
+```
+
+To enable Gemini for roadmap/advice generation in `ml-model/.env`:
+
+```dotenv
+USE_GEMINI_ROADMAP=true
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_TIMEOUT_MS=8000
+```
+
+Notes:
+- Gemini is used only for roadmap generation.
+- Skill gaps and scoring remain deterministic in local ML logic.
+- If Gemini fails/times out, the service automatically falls back to local roadmap generation.
+
+### 3) Run backend
+
+```bash
+cd backend
+copy .env.example .env
+npm install
+npx prisma generate
+npx prisma migrate dev --name init
+npm run dev
+```
+
+After copying `backend/.env.example` to `backend/.env`, update this value for local run:
+
+```dotenv
+ML_SERVICE_URL=http://localhost:8000
+```
+
+### 4) Run frontend
+
+```bash
+cd frontend
+copy .env.example .env.local
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+---
+
+## Quick health checks
+
+- Backend health: `GET http://localhost:8080/health`
+- Backend API index: `GET http://localhost:8080/api`
+- ML service health: `GET http://localhost:8000/health`
+
+---
+
+## Train baseline classifier (optional)
+
+From `ml-model/`:
+
+```bash
+python scripts/train_baseline.py
+```
+
+Faster subset run:
+
+```bash
+python scripts/train_baseline.py --max-pdfs 600
+```
+
+Generated files:
+
+- `ml-model/saved_models/resume_classifier.joblib`
+- `ml-model/saved_models/resume_classifier_metrics.json`
+
+---
+
+## Common issues
+
+- **Backend can’t reach ML service**: set `ML_SERVICE_URL=http://localhost:8000` in `backend/.env` for local runs.
+- **Prisma connection errors**: verify `DATABASE_URL` and `DIRECT_URL` in `backend/.env`.
+- **Frontend API errors**: verify `NEXT_PUBLIC_BACKEND_URL=http://localhost:8080/api` in `frontend/.env.local`.

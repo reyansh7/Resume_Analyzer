@@ -79,8 +79,12 @@ export async function meController(req: Request, res: Response) {
 
   const dbUser = await findUserById(req.user.userId);
 
+  if (!dbUser) {
+    return res.status(401).json({ message: "User not found" });
+  }
+
   const onboardingComplete = Boolean(
-    dbUser?.profession &&
+    dbUser.profession &&
       dbUser.targetRole &&
       dbUser.level &&
       Array.isArray(dbUser.skills) &&
@@ -91,11 +95,11 @@ export async function meController(req: Request, res: Response) {
     message: "Protected data",
     user: {
       ...req.user,
-      profession: dbUser?.profession,
-      targetRole: dbUser?.targetRole,
-      level: dbUser?.level,
-      skills: dbUser?.skills ?? [],
-      goal: dbUser?.goal
+      profession: dbUser.profession,
+      targetRole: dbUser.targetRole,
+      level: dbUser.level,
+      skills: dbUser.skills,
+      goal: dbUser.goal
     },
     onboardingComplete
   });

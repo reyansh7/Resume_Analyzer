@@ -28,10 +28,17 @@ const demo = {
     certificationsDetected: ["AWS Developer Associate"],
     awardsDetected: ["Gold Medal — National-level Competition"],
     featuredProject: "Next-Word Prediction using LSTM & GRU — Built and trained sequence models on Hamlet dataset.",
+    featuredProjects: [
+      "Next-Word Prediction using LSTM & GRU — Built and trained sequence models on Hamlet dataset.",
+      "Fraud Detection System — Developed anomaly detection workflows with model evaluation metrics.",
+      "Customer Churn Prediction — Built churn classifier and feature-engineering pipeline for retention signals."
+    ],
     featuredExperiences: [
       "Led creative strategy for major hackathon and conference events.",
       "Coordinated expert sessions and managed article-writing operations."
-    ]
+    ],
+    roadmapSource: "gemini",
+    roadmapModel: "gemini-2.0-flash"
   },
   strengths: ["React", "TypeScript", "REST API Design"],
   gaps: ["Docker", "Kubernetes", "MLOps", "System Design"],
@@ -72,19 +79,49 @@ export default function DashboardPage() {
     return demo;
   }, [mutation.data]);
 
+  const normalizeTextList = (items: Array<string | null | undefined> | undefined): string[] => {
+    if (!Array.isArray(items)) return [];
+    return Array.from(
+      new Set(
+        items
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter((item) => item.length > 0)
+      )
+    );
+  };
+
+  const formatDisplayLine = (value: string): string => {
+    return value
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/,(?=\S)/g, ", ")
+      .replace(/\b(Led|Built|Created|Developed|Implemented)(?=[a-z])/g, "$1 ")
+      .replace(/ofthe/gi, "of the")
+      .replace(/formorethan/gi, "for more than")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
   const visibleCertifications = useMemo(() => {
-    const fromParsed = result.parsedResume?.certificationsDetected;
-    if (Array.isArray(fromParsed) && fromParsed.length > 0) {
-      return fromParsed;
-    }
-    return mutation.data ? [] : result.certs;
-  }, [mutation.data, result.certs, result.parsedResume?.certificationsDetected]);
+    const fromParsed = normalizeTextList(result.parsedResume?.certificationsDetected);
+    const fromTopLevel = normalizeTextList(result.certs);
+    return Array.from(new Set([...fromParsed, ...fromTopLevel]));
+  }, [result.certs, result.parsedResume?.certificationsDetected]);
 
   const visibleAwardsAndCertifications = useMemo(() => {
-    const awards = Array.isArray(result.parsedResume?.awardsDetected) ? result.parsedResume.awardsDetected : [];
+    const awards = normalizeTextList(result.parsedResume?.awardsDetected);
     const certs = Array.isArray(visibleCertifications) ? visibleCertifications : [];
     return Array.from(new Set([...awards, ...certs]));
   }, [result.parsedResume?.awardsDetected, visibleCertifications]);
+
+  const visibleProjects = useMemo(() => {
+    const fromList = normalizeTextList(result.parsedResume?.featuredProjects);
+    const fromSingle = normalizeTextList([result.parsedResume?.featuredProject]);
+    return Array.from(new Set([...fromList, ...fromSingle]));
+  }, [result.parsedResume?.featuredProject, result.parsedResume?.featuredProjects]);
+
+  const visibleExperiences = useMemo(() => {
+    return normalizeTextList(result.parsedResume?.featuredExperiences);
+  }, [result.parsedResume?.featuredExperiences]);
 
   return (
     <main>
@@ -142,25 +179,31 @@ export default function DashboardPage() {
                 {visibleAwardsAndCertifications.length > 0 && (
                   <Card>
                     <p className="text-sm font-medium text-muted-foreground">Awards & Certifications</p>
-                    <ul className="mt-3 space-y-2">{visibleAwardsAndCertifications.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{item}</li>)}</ul>
+                    <ul className="mt-3 space-y-2">{visibleAwardsAndCertifications.map((item) => <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2">{formatDisplayLine(item)}</li>)}</ul>
                   </Card>
                 )}
               </div>
 
-              {(result.parsedResume?.featuredProject || (result.parsedResume?.featuredExperiences && result.parsedResume.featuredExperiences.length > 0)) && (
+              {mutation.data && (visibleProjects.length > 0 || visibleExperiences.length > 0) && (
                 <div className="mt-5 grid gap-5 md:grid-cols-2">
-                  {result.parsedResume?.featuredProject && (
+                  {visibleProjects.length > 0 && (
                     <Card>
-                      <p className="text-sm font-medium text-muted-foreground">Highlighted Project</p>
-                      <p className="mt-3 rounded-lg bg-secondary/70 px-3 py-2 text-sm leading-relaxed">{result.parsedResume.featuredProject}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Highlighted Projects</p>
+                      <ul className="mt-3 space-y-2">
+                        {visibleProjects.map((project) => (
+                            <li key={project} className="rounded-lg bg-secondary/70 px-3 py-2 text-sm leading-relaxed">
+                              {formatDisplayLine(project)}
+                            </li>
+                          ))}
+                      </ul>
                     </Card>
                   )}
-                  {result.parsedResume?.featuredExperiences && result.parsedResume.featuredExperiences.length > 0 && (
+                  {visibleExperiences.length > 0 && (
                     <Card>
                       <p className="text-sm font-medium text-muted-foreground">Highlighted Experiences</p>
                       <ul className="mt-3 space-y-2">
-                        {result.parsedResume.featuredExperiences.map((item) => (
-                          <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2 text-sm">{item}</li>
+                        {visibleExperiences.map((item) => (
+                          <li key={item} className="rounded-lg bg-secondary/70 px-3 py-2 text-sm">{formatDisplayLine(item)}</li>
                         ))}
                       </ul>
                     </Card>
@@ -171,20 +214,20 @@ export default function DashboardPage() {
               <Card className="mt-5">
                 <p className="text-sm font-medium text-muted-foreground">Resume Snapshot</p>
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2 text-sm">
-                    <p><span className="font-medium">Profession:</span> {result.parsedResume?.profession || "-"}</p>
-                    <p><span className="font-medium">Experience Level:</span> {result.parsedResume?.experienceLevel || "-"}</p>
-                    <p><span className="font-medium">Word Count:</span> {result.parsedResume?.wordCount ?? "-"}</p>
-                    <p><span className="font-medium">Category:</span> {result.parsedResume?.predictedCategory || "-"}</p>
-                    <p><span className="font-medium">Target Category:</span> {result.parsedResume?.targetCategory || "-"}</p>
-                    <p><span className="font-medium">Target Match Probability:</span> {typeof result.parsedResume?.targetCategoryProbability === "number" ? `${Math.round(result.parsedResume.targetCategoryProbability * 100)}%` : "-"}</p>
-                    <p><span className="font-medium">Model:</span> {result.parsedResume?.modelUsed || "-"}</p>
+                  <div className="space-y-3 rounded-xl border border-border/70 bg-secondary/30 p-4 text-sm">
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Profession</span><span className="font-medium">{result.parsedResume?.profession || "-"}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Experience Level</span><span className="font-medium">{result.parsedResume?.experienceLevel || "-"}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Word Count</span><span className="font-medium">{result.parsedResume?.wordCount ?? "-"}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Category</span><span className="font-medium">{result.parsedResume?.predictedCategory || "-"}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Target Category</span><span className="font-medium">{result.parsedResume?.targetCategory || "-"}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Target Match Probability</span><span className="font-medium">{typeof result.parsedResume?.targetCategoryProbability === "number" ? `${Math.round(result.parsedResume.targetCategoryProbability * 100)}%` : "-"}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Model</span><span className="font-medium">{result.parsedResume?.modelUsed || "-"}</span></div>
                   </div>
-                  <div>
+                  <div className="rounded-xl border border-border/70 bg-secondary/30 p-4">
                     <p className="text-sm font-medium">Extracted Resume Skills</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {(result.parsedResume?.skillsExtracted || []).slice(0, 16).map((item) => (
-                        <span key={item} className="rounded-md bg-secondary/70 px-2 py-1 text-xs">{item}</span>
+                        <span key={item} className="rounded-full bg-secondary/80 px-3 py-1 text-xs font-medium">{item}</span>
                       ))}
                       {(!result.parsedResume?.skillsExtracted || result.parsedResume.skillsExtracted.length === 0) && (
                         <span className="text-sm text-muted-foreground">No resume skills extracted.</span>
@@ -192,7 +235,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 rounded-lg bg-secondary/40 p-3">
+                <div className="mt-4 rounded-xl border border-border/70 bg-secondary/40 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Resume Text Preview</p>
                   <p className="mt-1 text-sm leading-relaxed">{result.parsedResume?.resumePreview || "Preview unavailable for this analysis."}</p>
                 </div>
@@ -218,12 +261,25 @@ export default function DashboardPage() {
                   ))}
                 </ul>
               </Card>
-              <DashboardCharts strengths={result.strengths} gaps={result.gaps} matchScore={result.score} />
+              <DashboardCharts
+                strengths={result.strengths}
+                gaps={result.gaps}
+                matchScore={result.score}
+                extractedSkills={result.parsedResume?.skillsExtracted || []}
+              />
             </div>
           )}
 
           {!mutation.isPending && tab === "roadmap" && (
             <Card>
+              <div className="mb-4 flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Roadmap Engine</span>
+                <span className="font-medium">
+                  {result.parsedResume?.roadmapSource === "gemini"
+                    ? `Gemini${result.parsedResume?.roadmapModel ? ` (${result.parsedResume.roadmapModel})` : ""}`
+                    : "Local Fallback"}
+                </span>
+              </div>
               <div className="relative pl-6">
                 <div className="absolute bottom-0 left-2 top-0 w-px bg-primary/30" />
                 <div className="space-y-5">
@@ -237,7 +293,15 @@ export default function DashboardPage() {
                     >
                       <span className="absolute -left-[1.45rem] top-5 inline-block h-3 w-3 rounded-full bg-primary" />
                       <h3 className="font-medium">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                        {item.description
+                          .split(/\.\s+/)
+                          .map((part) => part.trim())
+                          .filter(Boolean)
+                          .map((part) => (
+                            <li key={`${item.title}-${part}`}>{part.endsWith(".") ? part : `${part}.`}</li>
+                          ))}
+                      </ul>
                     </motion.div>
                   ))}
                 </div>
