@@ -25,6 +25,22 @@ ROLE_CATEGORY_MAP = {
     "devops engineer": "INFORMATION-TECHNOLOGY",
 }
 
+ROLE_ALIASES = {
+    "software developer": "software engineer",
+    "full stack developer": "software engineer",
+    "fullstack developer": "software engineer",
+    "frontend developer": "software engineer",
+    "front end developer": "software engineer",
+    "backend developer": "software engineer",
+    "back end developer": "software engineer",
+    "sde": "software engineer",
+    "data scientist": "data analyst",
+    "business analyst": "data analyst",
+    "site reliability engineer": "devops engineer",
+    "sre": "devops engineer",
+    "platform engineer": "devops engineer",
+}
+
 SKILL_ALIASES = {
     "nodejs": "node",
     "node.js": "node",
@@ -72,6 +88,125 @@ ACTION_STARTERS = {
     "organized",
     "deployed",
 }
+
+SECTION_SIGNAL_PATTERNS = {
+    "projects": [
+        r"\bprojects?\b",
+        r"\bportfolio\b",
+        r"\bcapstone\b",
+        r"\bhackathon\b",
+        r"\bgithub\b",
+        r"\bdeployed\b",
+        r"\bbuilt\b",
+        r"\bdeveloped\b",
+        r"\bimplemented\b",
+        r"\bwebsite\b",
+        r"\bweb app\b",
+        r"\bapplication\b",
+        r"\bapi\b",
+        r"\bstreamlit\b",
+        r"\bfastapi\b",
+        r"\bflask\b",
+        r"\breact\b",
+        r"\bnext\s*js\b",
+    ],
+    "experience": [
+        r"\bexperience\b",
+        r"\bwork history\b",
+        r"\bemployment\b",
+        r"\bintern(ship)?\b",
+        r"\bworked\b",
+        r"\bled\b",
+        r"\bmanaged\b",
+        r"\bcoordinated\b",
+        r"\bresponsible\b",
+        r"\brole\b",
+        r"\bcompany\b",
+        r"\bteam\b",
+        r"\borganization\b",
+    ],
+    "certifications": [
+        r"\bcertification(s)?\b",
+        r"\bcertified\b",
+        r"\bcertificate\b",
+        r"\blicense(d)?\b",
+        r"\baws\b",
+        r"\bazure\b",
+        r"\bgoogle cloud\b",
+        r"\boracle\b",
+        r"\bscrum\b",
+        r"\bkubernetes\b",
+        r"\bfoundation\b",
+        r"\bassociate\b",
+        r"\bprofessional\b",
+    ],
+    "awards": [
+        r"\bawards?\b",
+        r"\bachievement(s)?\b",
+        r"\bhonou?rs?\b",
+        r"\bwinner\b",
+        r"\brank(ed)?\b",
+        r"\bfinalist\b",
+        r"\bscholar(ship)?\b",
+        r"\brecognition\b",
+    ],
+    "skills": [
+        r"\bskills?\b",
+        r"\btechnologies\b",
+        r"\btools?\b",
+        r"\bframeworks?\b",
+        r"\blanguages?\b",
+    ],
+    "other": [
+        r"\beducation\b",
+        r"\bcgpa\b",
+        r"\bgpa\b",
+        r"\bpercentage\b",
+        r"\buniversity\b",
+        r"\bcollege\b",
+        r"\bschool\b",
+        r"\bclass\s*x\b",
+        r"\bclass\s*xii\b",
+        r"\bcontact\b",
+        r"\bemail\b",
+        r"\bphone\b",
+        r"\blinkedin\b",
+    ],
+}
+
+CERTIFICATION_ENTRY_PATTERNS = [
+    r"\bcertification(s)?\b",
+    r"\bcertified\b",
+    r"\bcertificate\b",
+    r"\blicense(d)?\b",
+    r"\baws\b",
+    r"\bazure\b",
+    r"\bgoogle cloud\b",
+    r"\boracle\b",
+    r"\bscrum\b",
+    r"\bkubernetes\b",
+    r"\bterraform\b",
+    r"\bfoundation\b",
+    r"\bassociate\b",
+    r"\bprofessional\b",
+    r"\bnptel\b",
+    r"\bcoursera\b",
+    r"\budemy\b",
+]
+
+AWARD_ENTRY_PATTERNS = [
+    r"\baward(s)?\b",
+    r"\bachievement(s)?\b",
+    r"\bhonou?rs?\b",
+    r"\bwinner\b",
+    r"\brunner\s*-?\s*up\b",
+    r"\bfinalist\b",
+    r"\brank(ed)?\b",
+    r"\bscholar(ship)?\b",
+    r"\bmedal\b",
+    r"\bdean'?s list\b",
+    r"\brecognition\b",
+]
 
 SKILL_DISPLAY_NAMES = {
     "aws": "AWS",
@@ -202,6 +337,11 @@ class AnalyzePipeline:
 
         return None
 
+    def _normalize_role_key(self, target_role: str) -> str:
+        normalized = re.sub(r"[^a-z0-9 ]+", " ", target_role.lower())
+        normalized = " ".join(normalized.split())
+        return ROLE_ALIASES.get(normalized, normalized)
+
     def _target_category_probability(self, resume_text: str, target_category: str | None) -> float | None:
         if not self.classifier_bundle or not target_category:
             return None
@@ -317,6 +457,25 @@ class AnalyzePipeline:
             cleaned.append(self._display_skill(canonical))
         return list(dict.fromkeys(cleaned))
 
+    def _resume_mentions_skill(self, resume_text: str, skill: str) -> bool:
+        normalized_resume = re.sub(r"[^a-z0-9+/\. ]+", " ", resume_text.lower())
+        normalized_resume = f" {' '.join(normalized_resume.split())} "
+
+        canonical_skill = self._canonicalize_skill(skill)
+        if not canonical_skill:
+            return False
+
+        escaped = re.escape(canonical_skill).replace("\\ ", r"\s+")
+        if re.search(rf"\b{escaped}\b", normalized_resume):
+            return True
+
+        compact_resume = normalized_resume.replace(" ", "")
+        compact_skill = canonical_skill.replace(" ", "")
+        if len(compact_skill) >= 4 and compact_skill in compact_resume:
+            return True
+
+        return False
+
     def _is_skill_like_canonical(self, canonical: str) -> bool:
         candidate = canonical.lower().strip()
         if not candidate:
@@ -354,11 +513,17 @@ class AnalyzePipeline:
         if not normalized:
             return None
 
+        has_cert = "certification" in normalized or "certifications" in normalized
+        has_award = any(key in normalized for key in ["honors", "awards", "achievements"])
+        if has_cert and has_award:
+            return "awards_certifications"
+
         if (
             "technical skills" in normalized
             or normalized == "skills"
             or "tools and technologies" in normalized
             or "key skills" in normalized
+            or "core competencies" in normalized
         ):
             return "skills"
 
@@ -373,13 +538,13 @@ class AnalyzePipeline:
         ):
             return "experience"
 
-        if "certification" in normalized or "certifications" in normalized:
+        if has_cert:
             return "certifications"
 
-        if any(key in normalized for key in ["honors", "awards", "achievements"]):
+        if has_award:
             return "awards"
 
-        if normalized in {"education", "summary", "objective", "contact", "profile"}:
+        if normalized in {"education", "summary", "objective", "contact", "profile", "academics"}:
             return "other"
 
         return None
@@ -496,6 +661,7 @@ class AnalyzePipeline:
         text = re.sub(r"([a-z])([A-Z])", r"\1 \2", text)
         text = re.sub(r"([A-Za-z])([0-9])", r"\1 \2", text)
         text = re.sub(r"([0-9])([A-Za-z])", r"\1 \2", text)
+        text = re.sub(r"([a-z]{4,})(that|this|these|those)\b", r"\1 \2", text, flags=re.IGNORECASE)
 
         if re.search(r"[a-z]{20,}", text.lower()):
             for chunk in [
@@ -508,7 +674,100 @@ class AnalyzePipeline:
             text = re.sub(r"\s+", " ", text)
 
         text = re.sub(r"([a-z]{3,})(and|or|with|for|to|from|in|on|by)([a-z]{3,})", r"\1 \2 \3", text, flags=re.IGNORECASE)
+        text = self._repair_split_words(text)
         return text.strip(" -")
+
+    def _repair_split_words(self, text: str) -> str:
+        tokens = text.split()
+        if not tokens:
+            return text
+
+        stop_tokens = {"and", "or", "for", "with", "the", "to", "in", "on", "of", "by", "at", "is", "a", "an"}
+        suffix_tokens = {
+            "ing", "ion", "ions", "tion", "tions", "ed", "er", "ers", "ly", "ment", "ments",
+            "ship", "ships", "able", "ance", "ence", "ary", "ory", "form", "ents", "ized", "izer",
+            "izers", "ality", "ities", "sion", "sions", "gform", "gdata", "dary", "lity"
+        }
+
+        repaired: List[str] = []
+        index = 0
+        while index < len(tokens):
+            current = tokens[index]
+
+            if index + 2 < len(tokens):
+                middle = tokens[index + 1]
+                right = tokens[index + 2]
+                if (
+                    current.isalpha()
+                    and middle.isalpha()
+                    and right.isalpha()
+                    and len(current) >= 3
+                    and middle.lower() in {"on", "in"}
+                    and (right.lower() in suffix_tokens or re.match(r"^g[a-z]{2,}$", right.lower()))
+                ):
+                    repaired.append(f"{current}{middle}{right}")
+                    index += 3
+                    continue
+
+            if index + 1 < len(tokens):
+                right = tokens[index + 1]
+                if (
+                    current.isalpha()
+                    and right.isalpha()
+                    and len(current) >= 4
+                    and right.lower() not in stop_tokens
+                    and (
+                        right.lower() in suffix_tokens
+                        or (len(right) <= 3 and right.lower() not in {"api", "sql", "aws"})
+                    )
+                ):
+                    repaired.append(f"{current}{right}")
+                    index += 2
+                    continue
+
+            repaired.append(current)
+            index += 1
+
+        return " ".join(repaired)
+
+    def _is_education_or_year_noise(self, text: str) -> bool:
+        lowered = text.lower().strip()
+        if not lowered:
+            return True
+
+        if re.search(r"\b(aws|azure|google|oracle|kubernetes|scrum|nptel|coursera|udemy|certificate of completion|certified)\b", lowered):
+            return False
+
+        education_markers = [
+            r"\bschool\b", r"\bcollege\b", r"\buniversity\b", r"\bclass\s*(x|xii|10|12)\b",
+            r"\bsecondary\b", r"\bhigher secondary\b", r"\bssc\b", r"\bhsc\b",
+            r"\bcgpa\b", r"\bgpa\b", r"\bpercentage\b", r"\bboard\b"
+        ]
+
+        if any(re.search(pattern, lowered) for pattern in education_markers):
+            return True
+
+        if re.fullmatch(r"(?:19|20)\d{2}(?:\s*[-–]\s*(?:19|20)\d{2})?", lowered):
+            return True
+
+        if re.search(r"\b(19|20)\d{2}\s*[-–]\s*(19|20)\d{2}\b", lowered):
+            lexical = re.findall(r"[a-zA-Z]+", lowered)
+            if len(lexical) <= 4:
+                return True
+
+        return False
+
+    def _resume_mentions_phrase(self, resume_text: str, phrase: str) -> bool:
+        normalized_resume = re.sub(r"[^a-z0-9+#./ ]+", " ", resume_text.lower())
+        normalized_resume = " ".join(normalized_resume.split())
+
+        normalized_phrase = re.sub(r"[^a-z0-9+#./ ]+", " ", phrase.lower())
+        normalized_phrase = " ".join(normalized_phrase.split())
+        if not normalized_phrase:
+            return False
+
+        escaped = r"\b" + r"\s+".join(re.escape(part) for part in normalized_phrase.split()) + r"\b"
+        return bool(re.search(escaped, normalized_resume))
 
     def _is_readable_entry(self, value: str) -> bool:
         text = self._clean_display_line(value)
@@ -564,6 +823,55 @@ class AnalyzePipeline:
 
         return list(dict.fromkeys(entry.strip() for entry in entries if entry.strip()))
 
+    def _infer_line_section(self, line: str, current_section: str | None = None) -> str | None:
+        lowered = self._clean_display_line(line).lower()
+        if not lowered:
+            return None
+
+        scores = {key: 0 for key in ["skills", "projects", "experience", "awards", "certifications", "other"]}
+
+        for section_key, patterns in SECTION_SIGNAL_PATTERNS.items():
+            for pattern in patterns:
+                if re.search(pattern, lowered):
+                    scores[section_key] += 1
+
+        if re.search(r"\b(19|20)\d{2}\b", lowered):
+            scores["experience"] += 1
+
+        if re.search(r"\b(gpa|cgpa|class x|class xii|b\.?tech|b\.?e\.?|m\.?tech|bachelor|master)\b", lowered):
+            scores["other"] += 2
+
+        if re.search(r"\b(certificate|certification|certified)\b", lowered):
+            scores["certifications"] += 2
+
+        if re.search(r"\b(project|portfolio|app|application|api|model|dataset|github)\b", lowered):
+            scores["projects"] += 1
+
+        if re.search(r"\b(intern|internship|worked|employment|organization|company|role)\b", lowered):
+            scores["experience"] += 1
+
+        if re.search(r"\b(awarded|winner|finalist|rank|recognition)\b", lowered):
+            scores["awards"] += 1
+
+        if re.search(r"\b(skills?|tools?|technologies|frameworks?)\b", lowered):
+            scores["skills"] += 1
+
+        sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        top_section, top_score = sorted_scores[0]
+        second_score = sorted_scores[1][1] if len(sorted_scores) > 1 else 0
+
+        if top_score <= 0:
+            return current_section
+
+        # Require stronger signal before overriding an active section context.
+        if current_section and top_section != current_section and top_score <= second_score:
+            return current_section
+
+        if current_section and top_section != current_section and (top_score - second_score) < 1:
+            return current_section
+
+        return top_section
+
     def _extract_resume_sections(self, resume_text: str) -> Dict[str, List[str]]:
         sections: Dict[str, List[str]] = {
             "skills": [],
@@ -584,21 +892,88 @@ class AnalyzePipeline:
                 current_section = None
                 continue
 
+            if detected == "awards_certifications":
+                current_section = "awards_certifications"
+                continue
+
             if detected in sections:
                 current_section = detected
                 continue
 
-            if current_section in sections:
-                sections[current_section].append(line)
+            if current_section == "awards_certifications":
+                inferred_combined = self._infer_line_section(line, current_section=None)
+                if inferred_combined in {"awards", "certifications"}:
+                    sections[inferred_combined].append(line)
+                continue
+
+            inferred = self._infer_line_section(line, current_section=current_section)
+            if inferred == "other":
+                continue
+
+            target_section = inferred if inferred in sections else current_section
+            if target_section in sections:
+                sections[target_section].append(line)
 
         if not any(sections.values()):
             fallback_lines = [self._clean_display_line(line) for line in resume_text.splitlines()]
             fallback_lines = [line for line in fallback_lines if line]
-            sections["experience"] = [line for line in fallback_lines if re.search(r"\b(led|managed|built|developed|implemented|worked|intern)\b", line.lower())][:10]
-            sections["projects"] = [line for line in fallback_lines if re.search(r"\b(project|model|app|application|system|classifier|api)\b", line.lower())][:10]
+            sections["experience"] = [line for line in fallback_lines if self._infer_line_section(line) == "experience"][:10]
+            sections["projects"] = [line for line in fallback_lines if self._infer_line_section(line) == "projects"][:10]
             sections["skills"] = [line for line in fallback_lines if re.search(r"\b(skills?|technologies|tools|frameworks?)\b", line.lower())][:6]
+            sections["certifications"] = [line for line in fallback_lines if self._infer_line_section(line) == "certifications"][:8]
+            sections["awards"] = [line for line in fallback_lines if self._infer_line_section(line) == "awards"][:8]
+
+        for section_key in sections:
+            deduped: List[str] = []
+            seen: set[str] = set()
+            for line in sections[section_key]:
+                canonical = self._clean_display_line(line).lower()
+                if canonical in seen:
+                    continue
+                seen.add(canonical)
+                deduped.append(line)
+            sections[section_key] = deduped
 
         return sections
+
+    def _line_matches_any(self, text: str, patterns: List[str]) -> bool:
+        lowered = text.lower()
+        return any(re.search(pattern, lowered) for pattern in patterns)
+
+    def _is_likely_certification_entry(self, text: str) -> bool:
+        lowered = text.lower().strip()
+        if not lowered:
+            return False
+
+        if self._is_education_or_year_noise(lowered):
+            return False
+
+        if self._line_matches_any(lowered, AWARD_ENTRY_PATTERNS):
+            return False
+
+        if self._line_matches_any(lowered, CERTIFICATION_ENTRY_PATTERNS):
+            return True
+
+        if len(lowered) <= 90 and re.search(r"\b(associate|professional|foundation|practitioner)\b", lowered):
+            return True
+
+        return False
+
+    def _is_likely_award_entry(self, text: str) -> bool:
+        lowered = text.lower().strip()
+        if not lowered:
+            return False
+
+        if self._line_matches_any(lowered, CERTIFICATION_ENTRY_PATTERNS):
+            return False
+
+        if self._line_matches_any(lowered, AWARD_ENTRY_PATTERNS):
+            return True
+
+        if re.search(r"\b(smart india hackathon|hackathon winner|top\s+\d+)\b", lowered):
+            return True
+
+        return False
 
     def _extract_skills_from_section(self, section_lines: List[str]) -> List[str]:
         detected: List[str] = []
@@ -624,11 +999,18 @@ class AnalyzePipeline:
             cleaned = self._clean_display_line(line)
             if len(cleaned) < 6:
                 continue
+            if self._is_education_or_year_noise(cleaned):
+                continue
             if not self._is_readable_entry(cleaned):
                 continue
             if cleaned.lower() in {"honors & awards", "awards", "honors"}:
                 continue
+            inferred = self._infer_line_section(cleaned)
+            if inferred in {"projects", "experience", "other", "skills"}:
+                continue
             if re.search(r"\b(certified|certification|associate|professional|foundation|license|aws|azure|google|oracle|scrum|kubernetes)\b", cleaned.lower()):
+                continue
+            if not self._is_likely_award_entry(cleaned):
                 continue
             awards.append(self._compress_entry(cleaned, max_len=180))
 
@@ -640,9 +1022,16 @@ class AnalyzePipeline:
             cleaned = self._clean_display_line(line)
             if len(cleaned) < 4:
                 continue
+            if self._is_education_or_year_noise(cleaned):
+                continue
             if not self._is_readable_entry(cleaned):
                 continue
             if cleaned.lower() in {"certifications", "certification"}:
+                continue
+            inferred = self._infer_line_section(cleaned)
+            if inferred in {"projects", "experience", "other", "skills"}:
+                continue
+            if not self._is_likely_certification_entry(cleaned):
                 continue
             certs.append(self._compress_entry(cleaned, max_len=180))
 
@@ -752,6 +1141,8 @@ class AnalyzePipeline:
                 lowered = cleaned.lower()
                 if len(cleaned) < 18:
                     continue
+                if self._infer_line_section(cleaned) == "other":
+                    continue
                 if re.search(r"\b(intern|lead|manager|coordinator|volunteer|member|club|committee)\b", lowered):
                     continue
                 if not re.search(r"\b(project|app|system|model|classifier|dataset|nlp|ml|ai|streamlit|kaggle|python|react|api)\b", lowered):
@@ -795,6 +1186,8 @@ class AnalyzePipeline:
             if not self._is_readable_entry(line):
                 continue
             text = line.lower()
+            if self._infer_line_section(line) in {"projects", "other", "certifications"}:
+                continue
             if re.search(r"\b(project|streamlit|kaggle|classifier|dataset|model|nlp|tensorflow|pytorch)\b", text):
                 continue
             score = sum(weight for key, weight in keyword_weights.items() if key in text)
@@ -816,7 +1209,7 @@ class AnalyzePipeline:
         sections = self._extract_resume_sections(resume_text)
 
         # Resolve role-specific benchmark skills from our curated dictionary.
-        role_key = target_role.lower().strip()
+        role_key = self._normalize_role_key(target_role)
         role_skills = ROLE_SKILL_MAP.get(role_key, ROLE_SKILL_MAP["software engineer"])
         target_category = self._resolve_target_category(role_key)
 
@@ -840,6 +1233,12 @@ class AnalyzePipeline:
             if canonical and canonical not in resume_skill_display_by_canonical:
                 resume_skill_display_by_canonical[canonical] = raw_skill
 
+        for role_skill in role_skills:
+            if self._resume_mentions_skill(resume_text, role_skill):
+                canonical = self._canonicalize_skill(role_skill)
+                if canonical and canonical not in resume_skill_display_by_canonical:
+                    resume_skill_display_by_canonical[canonical] = role_skill
+
         profile_skill_display_by_canonical: Dict[str, str] = {}
         for raw_skill in current_skills:
             canonical = self._canonicalize_skill(raw_skill)
@@ -858,20 +1257,21 @@ class AnalyzePipeline:
             skill for skill in resume_skill_keys if skill not in role_skill_set and skill not in profile_role_strengths
         ]
 
-        transferable = [skill for skill in GENERIC_TRANSFERABLE_SKILLS if skill in resume_text.lower()]
-        if not transferable:
-            transferable = GENERIC_TRANSFERABLE_SKILLS[:3]
+        transferable = [skill for skill in GENERIC_TRANSFERABLE_SKILLS if self._resume_mentions_phrase(resume_text, skill)]
+        transferable_display = list(dict.fromkeys(self._clean_display_line(skill.title()) for skill in transferable if skill.strip()))[:6]
+        transferable_canonical = {self._canonicalize_skill(skill) for skill in transferable}
 
         strengths: List[str] = []
-        for canonical in resume_role_strengths + profile_role_strengths:
+        for canonical in resume_role_strengths:
             strengths.append(self._display_skill(canonical))
 
         for canonical in additional_resume_strengths[:6]:
             if not self._is_skill_like_canonical(canonical):
                 continue
+            if canonical in transferable_canonical:
+                continue
             strengths.append(self._display_skill(canonical))
 
-        strengths.extend(skill.title() for skill in transferable)
         strengths = list(
             dict.fromkeys(
                 [
@@ -882,10 +1282,11 @@ class AnalyzePipeline:
             )
         )[:14]
 
+        resume_strength_set = set(resume_role_strengths)
         missing_skills = [
-            role_skill_by_canonical[skill]
-            for skill in role_skill_set
-            if skill not in resume_role_strengths and skill not in profile_role_strengths
+            role_skill
+            for role_skill in role_skills
+            if self._canonicalize_skill(role_skill) not in resume_strength_set
         ]
 
         # Semantic similarity compares full resume context against target role skill profile.
@@ -901,7 +1302,8 @@ class AnalyzePipeline:
 
         # Final score emphasizes resume evidence, then semantic fit.
         resume_role_coverage = len(resume_role_strengths) / max(len(role_skills), 1)
-        heuristic_score = max(0.0, min(100.0, (0.55 * similarity + 0.45 * resume_role_coverage) * 100))
+        combined_role_coverage = len(set(resume_role_strengths + profile_role_strengths)) / max(len(role_skills), 1)
+        heuristic_score = max(0.0, min(100.0, (0.5 * similarity + 0.2 * resume_role_coverage + 0.3 * combined_role_coverage) * 100))
 
         predicted_category, predicted_confidence = self._predict_category(resume_text)
         target_probability = self._target_category_probability(resume_text, target_category)
@@ -948,6 +1350,7 @@ class AnalyzePipeline:
         # Parsed structure is persisted in PostgreSQL JSONB for dashboard rendering.
         parsed_resume = {
             "profession": profession,
+            "targetRole": target_role,
             "experienceLevel": level,
             "skillsExtracted": self._normalize_skill_list(section_skills + extracted_skills),
             "skillsFromResumeCount": len(resume_role_strengths),
@@ -973,7 +1376,7 @@ class AnalyzePipeline:
             match_score=round(match_score, 2),
             strengths=strengths,
             skill_gaps=missing_skills,
-            transferable_skills=transferable,
+            transferable_skills=transferable_display,
             roadmap=roadmap,
             certifications=certs,
         )

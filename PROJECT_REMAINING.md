@@ -117,6 +117,7 @@ Note:
 ```bash
 cd ml-model
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+c:/Users/reyan/OneDrive/Desktop/Resume_Analyzer/ml-model/.venv/Scripts/python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 2. Backend (in-memory mode):

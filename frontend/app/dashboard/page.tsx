@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { isAxiosError } from "axios";
 import { Navbar } from "@/components/navbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ const demo = {
   score: 78,
   parsedResume: {
     profession: "Software Engineer",
+    targetRole: "Software Engineer",
     experienceLevel: "Mid",
     skillsExtracted: ["react", "typescript", "node", "sql"],
     wordCount: 420,
@@ -52,15 +55,27 @@ const demo = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: async (uploadFile: File) => {
       const formData = new FormData();
       formData.append("resume", uploadFile);
       return uploadResume(formData);
+    },
+    onError: (error) => {
+      if (isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 401 || status === 403) {
+          localStorage.removeItem("resume-analyzer-token");
+          setAuthError("Your session expired. Please login again.");
+          router.push("/login");
+        }
+      }
     }
   });
 
@@ -91,14 +106,27 @@ export default function DashboardPage() {
   };
 
   const formatDisplayLine = (value: string): string => {
-    return value
+    const repaired = value
       .replace(/([a-z])([A-Z])/g, "$1 $2")
       .replace(/,(?=\S)/g, ", ")
+      .replace(/([a-z]{4,})(that|this|these|those)\b/gi, "$1 $2")
+      .replace(/\b([a-z]{3,})\s+(in|on)\s+(g[a-z]{2,}|dary|ents|ship|ships|ment|ments|tions|tion|able|form)\b/gi, "$1$2$3")
+      .replace(/\b([a-z]{4,})\s+(ing|ion|ions|ed|er|ers|ly|ment|ments|ship|ships|able|ance|ence|ary|ory|form|ents)\b/gi, "$1$2")
       .replace(/\b(Led|Built|Created|Developed|Implemented)(?=[a-z])/g, "$1 ")
       .replace(/ofthe/gi, "of the")
       .replace(/formorethan/gi, "for more than")
       .replace(/\s+/g, " ")
       .trim();
+
+    return repaired;
+  };
+
+  const formatCategoryLabel = (value?: string | null): string => {
+    if (!value) return "-";
+    return value
+      .replace(/[_-]+/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
   const visibleCertifications = useMemo(() => {
@@ -136,11 +164,15 @@ export default function DashboardPage() {
                 <UploadZone dragging={dragging} onSelectFile={setFile} setDragging={setDragging} />
               </div>
               <div className="mt-4 flex items-center gap-3">
-                <Button disabled={!file || mutation.isPending} onClick={() => file && mutation.mutate(file)}>
+                <Button disabled={!file || mutation.isPending} onClick={() => {
+                  setAuthError(null);
+                  if (file) mutation.mutate(file);
+                }}>
                   {mutation.isPending ? "Analyzing..." : "Analyze Resume"}
                 </Button>
                 {file && <span className="text-sm text-muted-foreground">{file.name}</span>}
               </div>
+              {authError && <p className="mt-2 text-sm text-red-500">{authError}</p>}
             </div>
             <div className="flex items-center justify-center">
               <MatchScoreRing score={result.score} />
@@ -215,13 +247,38 @@ export default function DashboardPage() {
                 <p className="text-sm font-medium text-muted-foreground">Resume Snapshot</p>
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
                   <div className="space-y-3 rounded-xl border border-border/70 bg-secondary/30 p-4 text-sm">
-                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Profession</span><span className="font-medium">{result.parsedResume?.profession || "-"}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Experience Level</span><span className="font-medium">{result.parsedResume?.experienceLevel || "-"}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Word Count</span><span className="font-medium">{result.parsedResume?.wordCount ?? "-"}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Category</span><span className="font-medium">{result.parsedResume?.predictedCategory || "-"}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Target Category</span><span className="font-medium">{result.parsedResume?.targetCategory || "-"}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Target Match Probability</span><span className="font-medium">{typeof result.parsedResume?.targetCategoryProbability === "number" ? `${Math.round(result.parsedResume.targetCategoryProbability * 100)}%` : "-"}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-muted-foreground">Model</span><span className="font-medium">{result.parsedResume?.modelUsed || "-"}</span></div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Target Role</span>
+                      <span className="text-right font-semibold">{result.parsedResume?.targetRole || "-"}</span>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Profession</span>
+                      <span className="text-right font-medium">{result.parsedResume?.profession || "-"}</span>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Experience Level</span>
+                      <span className="text-right font-medium">{result.parsedResume?.experienceLevel || "-"}</span>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Word Count</span>
+                      <span className="text-right font-medium">{result.parsedResume?.wordCount ?? "-"}</span>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Predicted Category</span>
+                      <span className="text-right font-medium">{formatCategoryLabel(result.parsedResume?.predictedCategory)}</span>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Benchmark Category</span>
+                      <span className="text-right font-medium">{formatCategoryLabel(result.parsedResume?.targetCategory)}</span>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Target Match Probability</span>
+                      <span className="text-right font-medium">{typeof result.parsedResume?.targetCategoryProbability === "number" ? `${Math.round(result.parsedResume.targetCategoryProbability * 100)}%` : "-"}</span>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3">
+                      <span className="text-muted-foreground">Model</span>
+                      <span className="break-all text-right font-medium">{result.parsedResume?.modelUsed || "-"}</span>
+                    </div>
                   </div>
                   <div className="rounded-xl border border-border/70 bg-secondary/30 p-4">
                     <p className="text-sm font-medium">Extracted Resume Skills</p>
@@ -264,7 +321,6 @@ export default function DashboardPage() {
               <DashboardCharts
                 strengths={result.strengths}
                 gaps={result.gaps}
-                matchScore={result.score}
                 extractedSkills={result.parsedResume?.skillsExtracted || []}
               />
             </div>

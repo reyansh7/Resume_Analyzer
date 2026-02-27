@@ -18,6 +18,11 @@ SKILL_ALIASES = {
     "machine-learning": "machine learning",
     "deep-learning": "deep learning",
     "ci cd": "ci/cd",
+    "nextjs": "next.js",
+    "next js": "next.js",
+    "expressjs": "express",
+    "express js": "express",
+    "postgres": "postgresql",
 }
 
 EXTRA_SKILLS = {
@@ -40,6 +45,12 @@ EXTRA_SKILLS = {
     "machine learning",
     "deep learning",
     "rest api",
+    "next.js",
+    "express",
+    "postgresql",
+    "redis",
+    "kubernetes",
+    "docker",
 }
 
 ALL_KNOWN_SKILLS = sorted(
@@ -106,6 +117,10 @@ class NlpService:
         candidate_skill_set = set(candidate_skills)
         for chunk in noun_chunks:
             normalized_chunk = self._normalize_skill(chunk)
+            if len(normalized_chunk) < 3:
+                continue
+            if len(normalized_chunk.split()) > 4:
+                continue
             if normalized_chunk in candidate_skill_set:
                 found.add(normalized_chunk)
 

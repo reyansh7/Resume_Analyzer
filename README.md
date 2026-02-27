@@ -59,6 +59,8 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+
+/ml-model/.venv/Scripts/python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Optional env file:
@@ -127,10 +129,22 @@ From `ml-model/`:
 python scripts/train_baseline.py
 ```
 
+Recommended robust training (improves resilience to shuffled resume sections):
+
+```bash
+python scripts/train_baseline.py --section-shuffle-copies 2 --section-shuffle-prob 0.7
+```
+
 Faster subset run:
 
 ```bash
 python scripts/train_baseline.py --max-pdfs 600
+```
+
+Section-order regression check:
+
+```bash
+python scripts/validate_section_regression.py
 ```
 
 Generated files:

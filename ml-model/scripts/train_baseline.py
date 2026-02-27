@@ -18,6 +18,28 @@ from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.svm import LinearSVC
 
 
+SECTION_HEADERS = [
+    "skills",
+    "technical skills",
+    "projects",
+    "project",
+    "experience",
+    "work experience",
+    "employment",
+    "internship",
+    "internships",
+    "certification",
+    "certifications",
+    "awards",
+    "achievements",
+    "honors",
+    "education",
+    "summary",
+    "objective",
+    "profile",
+]
+
+
 @dataclass
 class Record:
     text: str
@@ -36,6 +58,136 @@ def normalize_text(text: str) -> str:
     text = text.lower()
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def normalize_text_for_section_split(text: str) -> str:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = normalized.replace("\\n", "\n")
+    normalized = re.sub(r"[\u2022\u2023\u25E6\u2043\u2219■▪●□▣◆◇◦]", "\n- ", normalized)
+
+    for header in SECTION_HEADERS:
+        pattern = rf"(?<!\n)\b{re.escape(header)}\b\s*[:\-]?"
+        normalized = re.sub(pattern, lambda m: f"\n{m.group(0).strip()}\n", normalized, flags=re.IGNORECASE)
+
+    lines: list[str] = []
+    for raw_line in normalized.split("\n"):
+        candidate = re.sub(r"\s+", " ", raw_line).strip()
+        if candidate:
+            lines.append(candidate)
+
+    return "\n".join(lines)
+
+
+def detect_section_header(line: str) -> str | None:
+    normalized = re.sub(r"[^a-z& ]+", " ", line.lower())
+    normalized = " ".join(normalized.split())
+    if not normalized:
+        return None
+
+    if (
+        "technical skills" in normalized
+        or normalized == "skills"
+        or "tools and technologies" in normalized
+        or "key skills" in normalized
+    ):
+        return "skills"
+
+    if normalized in {"projects", "project", "academic projects"} or "projects" in normalized:
+        return "projects"
+
+    if (
+        "experience" in normalized
+        or "work history" in normalized
+        or "employment" in normalized
+        or "internship" in normalized
+    ):
+        return "experience"
+
+    if "certification" in normalized or "certifications" in normalized:
+        return "certifications"
+
+    if any(key in normalized for key in ["honors", "awards", "achievements"]):
+        return "awards"
+
+    if normalized in {"education", "summary", "objective", "contact", "profile", "academics"}:
+        return "other"
+
+    return None
+
+
+def section_shuffle_augment(text: str, rng: random.Random) -> str:
+    normalized = normalize_text_for_section_split(text)
+    lines = [line.strip() for line in normalized.split("\n") if line.strip()]
+    if not lines:
+        return text
+
+    blocks: list[tuple[str | None, list[str]]] = []
+    current_header: str | None = None
+    current_lines: list[str] = []
+
+    for line in lines:
+        header = detect_section_header(line)
+        if header is not None:
+            if current_lines:
+                blocks.append((current_header, current_lines[:]))
+            current_header = line
+            current_lines = []
+            continue
+        current_lines.append(line)
+
+    if current_lines:
+        blocks.append((current_header, current_lines[:]))
+
+    if len(blocks) < 2:
+        return text
+
+    head_blocks = [block for block in blocks if block[0] is not None]
+    tail_blocks = [block for block in blocks if block[0] is None]
+
+    if len(head_blocks) < 2:
+        return text
+
+    rng.shuffle(head_blocks)
+    reordered = head_blocks + tail_blocks
+
+    out_lines: list[str] = []
+    for header, payload in reordered:
+        if header:
+            out_lines.append(header)
+        out_lines.extend(payload)
+
+    augmented = "\n".join(out_lines).strip()
+    return augmented if augmented else text
+
+
+def augment_training_split(
+    train_x: list[str],
+    train_y: list[str],
+    *,
+    copies: int,
+    probability: float,
+    random_state: int,
+) -> tuple[list[str], list[str], int]:
+    if copies <= 0 or probability <= 0:
+        return train_x, train_y, 0
+
+    rng = random.Random(random_state)
+    augmented_x = train_x[:]
+    augmented_y = train_y[:]
+    added = 0
+
+    for text, label in zip(train_x, train_y):
+        for _ in range(copies):
+            if rng.random() > probability:
+                continue
+            shuffled = section_shuffle_augment(text, rng)
+            if normalize_text(shuffled) == normalize_text(text):
+                continue
+            augmented_x.append(shuffled)
+            augmented_y.append(label)
+            added += 1
+
+    return augmented_x, augmented_y, added
 
 
 def text_signature(text: str, token_limit: int = 220) -> str:
@@ -467,6 +619,18 @@ def main() -> None:
         default="signature",
         help="Near-duplicate filtering mode applied within each class",
     )
+    parser.add_argument(
+        "--section-shuffle-copies",
+        type=int,
+        default=2,
+        help="Number of section-order augmented samples generated per training sample",
+    )
+    parser.add_argument(
+        "--section-shuffle-prob",
+        type=float,
+        default=0.7,
+        help="Probability of applying section-order augmentation for each augmentation copy",
+    )
     parser.add_argument("--model-out", default="saved_models/resume_classifier.joblib", help="Model output path")
     parser.add_argument("--metrics-out", default="saved_models/resume_classifier_metrics.json", help="Metrics output path")
     args = parser.parse_args()
@@ -505,6 +669,14 @@ def main() -> None:
         test_size=args.test_size,
         random_state=args.random_state,
         stratify=labels,
+    )
+
+    train_x, train_y, section_shuffle_added = augment_training_split(
+        train_x,
+        train_y,
+        copies=args.section_shuffle_copies,
+        probability=args.section_shuffle_prob,
+        random_state=args.random_state,
     )
 
     selected_model_name = "baseline_logreg"
@@ -566,6 +738,9 @@ def main() -> None:
                     for result in search_results
                 ],
                 "cleaning": clean_stats,
+                "section_shuffle_copies": args.section_shuffle_copies,
+                "section_shuffle_prob": args.section_shuffle_prob,
+                "section_shuffle_added": section_shuffle_added,
             },
         },
         model_out,
@@ -603,6 +778,9 @@ def main() -> None:
             for result in search_results
         ],
         "cleaning": clean_stats,
+        "section_shuffle_copies": args.section_shuffle_copies,
+        "section_shuffle_prob": args.section_shuffle_prob,
+        "section_shuffle_added": section_shuffle_added,
         "class_counts_before": get_label_counts(all_records_clean),
         "class_counts_after": get_label_counts(all_records),
     }
@@ -616,6 +794,7 @@ def main() -> None:
     print(f"Raw records: {len(all_records_raw)}")
     print(f"After cleaning: {len(all_records_clean)}")
     print(f"After balancing: {len(all_records)}")
+    print(f"Section-order augmented training samples: {section_shuffle_added}")
     print(f"Selected model: {selected_model_name}")
     if search_results:
         top_result = search_results[0]

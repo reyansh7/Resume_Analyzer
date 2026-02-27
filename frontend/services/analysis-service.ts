@@ -5,6 +5,7 @@ export type AnalysisResult = {
   matchScore: number;
   parsedResume?: {
     profession?: string;
+    targetRole?: string;
     experienceLevel?: string;
     skillsExtracted?: string[];
     skillsFromResumeCount?: number;

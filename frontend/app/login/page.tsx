@@ -105,7 +105,7 @@ export default function LoginPage() {
               : handleSubmitSignUp(onSignUpSubmit)
           }
           animate={shake ? { x: [-12, 12, -8, 8, 0] } : { x: 0 }}
-          className="glass-card w-full max-w-xl space-y-5 p-8"
+          className="glass-card w-full max-w-xl space-y-6 p-8 sm:p-10"
         >
           <AnimatePresence mode="wait">
             {mode === "signin" ? (
@@ -115,18 +115,18 @@ export default function LoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-5"
+                className="space-y-6 rounded-xl border border-border/60 bg-background/40 p-6"
               >
                 <div>
                   <h2 className="text-2xl font-semibold">Welcome back</h2>
-                  <p className="text-sm text-muted-foreground">Sign in to continue your analysis.</p>
+                  <p className="text-sm text-muted-foreground">Sign in to continue your resume analysis.</p>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <label className="text-sm font-medium">Email</label>
                   <Input {...registerSignIn("email")} placeholder="you@company.com" />
                   {signInErrors.email && <p className="text-xs text-red-500">{signInErrors.email.message}</p>}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <label className="text-sm font-medium">Password</label>
                   <Input type="password" {...registerSignIn("password")} placeholder="••••••••" />
                   {signInErrors.password && <p className="text-xs text-red-500">{signInErrors.password.message}</p>}
@@ -140,29 +140,29 @@ export default function LoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-4"
+                className="space-y-5 rounded-xl border border-border/60 bg-background/40 p-6"
               >
                 <div>
                   <h2 className="text-2xl font-semibold">Create your account</h2>
-                  <p className="text-sm text-muted-foreground">Create account first. We’ll ask career questions right after signup.</p>
+                  <p className="text-sm text-muted-foreground">Create your account. We’ll ask career questions right after sign up.</p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2.5 sm:col-span-2">
                     <label className="text-sm font-medium">Full Name</label>
                     <Input {...registerSignUp("fullName")} placeholder="Your full name" />
                     {signUpErrors.fullName && <p className="text-xs text-red-500">{signUpErrors.fullName.message}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <label className="text-sm font-medium">Email</label>
                     <Input {...registerSignUp("email")} placeholder="you@company.com" />
                     {signUpErrors.email && <p className="text-xs text-red-500">{signUpErrors.email.message}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <label className="text-sm font-medium">Password</label>
                     <Input type="password" {...registerSignUp("password")} placeholder="••••••••" />
                     {signUpErrors.password && <p className="text-xs text-red-500">{signUpErrors.password.message}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5 sm:col-span-2">
                     <label className="text-sm font-medium">Confirm Password</label>
                     <Input type="password" {...registerSignUp("confirmPassword")} placeholder="••••••••" />
                     {signUpErrors.confirmPassword && <p className="text-xs text-red-500">{signUpErrors.confirmPassword.message}</p>}
@@ -173,16 +173,11 @@ export default function LoginPage() {
             )}
           </AnimatePresence>
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Button type="button" variant="secondary">Google OAuth</Button>
-            <Button type="button" variant="secondary">LinkedIn OAuth</Button>
-          </div>
-
           <p className="text-center text-sm text-muted-foreground">
             {mode === "signin" ? "Don’t have an account?" : "Already have an account?"}{" "}
             <button
               type="button"
-              className="font-medium text-primary underline-offset-4 hover:underline"
+              className="font-semibold text-primary underline-offset-4 hover:underline"
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             >
               {mode === "signin" ? "Sign up" : "Sign in"}

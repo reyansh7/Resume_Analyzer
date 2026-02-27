@@ -1,9 +1,12 @@
 node_modules/
 .next/
+frontend/.next-dev/
+frontend/.next-build/
 dist/
 .env
 .env.*
 !.env.example
+*.bundle
 __pycache__/
 *.pyc
 .venv/

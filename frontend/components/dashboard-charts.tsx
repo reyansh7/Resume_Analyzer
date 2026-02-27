@@ -6,56 +6,99 @@ import { ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, BarC
 type DashboardChartsProps = {
   strengths: string[];
   gaps: string[];
-  matchScore: number;
   extractedSkills?: string[];
 };
 
-function toRadarBuckets(strengths: string[], extractedSkills: string[], matchScore: number) {
-  const normalizedScore = Math.max(0, Math.min(100, Number.isFinite(matchScore) ? matchScore : 0));
-  const lower = [...strengths, ...extractedSkills].map((item) => item.toLowerCase());
+function toRadarBuckets(strengths: string[], extractedSkills: string[], gaps: string[]) {
+  const sourceSkills = (extractedSkills.length > 0 ? extractedSkills : strengths).map((item) => item.toLowerCase());
+  const sourceGaps = gaps.map((item) => item.toLowerCase());
 
-  const has = (keywords: string[]) => keywords.some((keyword) => lower.some((item) => item.includes(keyword)));
-  const bump = (condition: boolean, amount: number) => (condition ? amount : 0);
-
-  return [
-    {
-      skill: "Frontend",
-      score: Math.min(100, Math.round(normalizedScore * 0.45 + bump(has(["react", "frontend", "typescript"]), 28)))
-    },
-    {
-      skill: "Backend",
-      score: Math.min(100, Math.round(normalizedScore * 0.5 + bump(has(["node", "python", "api", "sql"]), 30)))
-    },
-    {
-      skill: "System",
-      score: Math.min(100, Math.round(normalizedScore * 0.4 + bump(has(["system design", "architecture"]), 35)))
-    },
-    {
-      skill: "Cloud",
-      score: Math.min(100, Math.round(normalizedScore * 0.35 + bump(has(["aws", "azure", "gcp", "docker", "kubernetes"]), 32)))
-    },
-    {
-      skill: "Data",
-      score: Math.min(100, Math.round(normalizedScore * 0.3 + bump(has(["sql", "analytics", "pandas"]), 28)))
-    }
+  const domains: Array<{ skill: string; keywords: string[] }> = [
+    { skill: "Frontend", keywords: ["react", "next", "typescript", "javascript", "html", "css", "tailwind", "redux", "vue", "angular"] },
+    { skill: "Backend", keywords: ["node", "express", "api", "rest", "graphql", "django", "flask", "spring", "java", "microservice", "postgres", "mysql", "mongodb"] },
+    { skill: "System", keywords: ["system design", "architecture", "distributed", "scalability", "design pattern", "high availability"] },
+    { skill: "Cloud", keywords: ["aws", "azure", "gcp", "docker", "kubernetes", "terraform", "devops", "ci/cd", "monitoring"] },
+    { skill: "Data", keywords: ["sql", "pandas", "numpy", "tableau", "power bi", "excel", "statistics", "data analysis", "machine learning", "ml"] }
   ];
+
+  const hasKeyword = (text: string, keyword: string) => text.includes(keyword);
+
+  return domains.map((domain) => {
+    const evidenceHits = domain.keywords.filter((keyword) => sourceSkills.some((skill) => hasKeyword(skill, keyword))).length;
+    const gapHits = domain.keywords.filter((keyword) => sourceGaps.some((gap) => hasKeyword(gap, keyword))).length;
+    const base = evidenceHits > 0 ? 18 : 6;
+    const weighted = base + evidenceHits * 16 - gapHits * 10;
+
+    return {
+      skill: domain.skill,
+      score: Math.max(5, Math.min(95, Math.round(weighted)))
+    };
+  });
 }
 
-function toGapBars(gaps: string[]) {
+function toGapBars(gaps: string[], extractedSkills: string[]) {
   const sanitized = gaps.filter((item) => item.trim().length > 0).slice(0, 6);
   if (sanitized.length === 0) {
     return [{ skill: "No critical gaps", gap: 0 }];
   }
 
-  return sanitized.map((skill, index) => ({
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9+/#.\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const canonicalize = (value: string) => {
+    const normalized = normalize(value);
+    const aliases: Record<string, string> = {
+      "node.js": "node",
+      nodejs: "node",
+      "node js": "node",
+      javascript: "javascript",
+      typescript: "typescript",
+      "my sql": "sql",
+      k8s: "kubernetes",
+      "amazon web services": "aws"
+    };
+
+    return aliases[normalized] || normalized;
+  };
+
+  const evidence = new Set(extractedSkills.map((item) => canonicalize(item)));
+  const hasEvidenceForGap = (gap: string) => {
+    const gapCanonical = canonicalize(gap);
+    if (!gapCanonical) return false;
+    if (evidence.has(gapCanonical)) return true;
+
+    const gapTokens = new Set(gapCanonical.split(" "));
+    for (const skill of evidence) {
+      const skillTokens = new Set(skill.split(" "));
+      const overlap = [...gapTokens].filter((token) => skillTokens.has(token)).length;
+      if (overlap > 0 && overlap === gapTokens.size) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const filtered = sanitized.filter((skill) => !hasEvidenceForGap(skill));
+  if (filtered.length === 0) {
+    return [{ skill: "No critical gaps", gap: 0 }];
+  }
+
+  const total = filtered.length;
+
+  return filtered.map((skill, index) => ({
     skill: skill.length > 16 ? `${skill.slice(0, 16)}…` : skill,
-    gap: Math.max(15, 92 - index * 12)
+    gap: Math.round(42 + ((total - index) / total) * 48)
   }));
 }
 
-export function DashboardCharts({ strengths, gaps, matchScore, extractedSkills = [] }: DashboardChartsProps) {
-  const radarData = useMemo(() => toRadarBuckets(strengths, extractedSkills, matchScore), [strengths, extractedSkills, matchScore]);
-  const gapData = useMemo(() => toGapBars(gaps), [gaps]);
+export function DashboardCharts({ strengths, gaps, extractedSkills = [] }: DashboardChartsProps) {
+  const radarData = useMemo(() => toRadarBuckets(strengths, extractedSkills, gaps), [strengths, extractedSkills, gaps]);
+  const gapData = useMemo(() => toGapBars(gaps, extractedSkills), [gaps, extractedSkills]);
   const hasGapData = gapData.some((item) => item.gap > 0);
 
   return (
