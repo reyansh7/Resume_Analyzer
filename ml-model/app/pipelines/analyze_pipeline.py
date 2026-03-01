@@ -143,12 +143,18 @@ SECTION_SIGNAL_PATTERNS = {
     "awards": [
         r"\bawards?\b",
         r"\bachievement(s)?\b",
+        r"\bachieved\b",
+        r"\bqualified\b",
         r"\bhonou?rs?\b",
         r"\bwinner\b",
         r"\brank(ed)?\b",
         r"\bfinalist\b",
         r"\bscholar(ship)?\b",
         r"\brecognition\b",
+        r"\bcodeforces\b",
+        r"\bleetcode\b",
+        r"\brating\b",
+        r"\bcontest\b",
     ],
     "skills": [
         r"\bskills?\b",
@@ -197,6 +203,8 @@ CERTIFICATION_ENTRY_PATTERNS = [
 AWARD_ENTRY_PATTERNS = [
     r"\baward(s)?\b",
     r"\bachievement(s)?\b",
+    r"\bachieved\b",
+    r"\bqualified\b",
     r"\bhonou?rs?\b",
     r"\bwinner\b",
     r"\brunner\s*-?\s*up\b",
@@ -206,6 +214,10 @@ AWARD_ENTRY_PATTERNS = [
     r"\bmedal\b",
     r"\bdean'?s list\b",
     r"\brecognition\b",
+    r"\bcodeforces\b",
+    r"\bleetcode\b",
+    r"\brating\b",
+    r"\bcontest\b",
 ]
 
 SKILL_DISPLAY_NAMES = {
@@ -513,8 +525,22 @@ class AnalyzePipeline:
         if not normalized:
             return None
 
-        has_cert = "certification" in normalized or "certifications" in normalized
-        has_award = any(key in normalized for key in ["honors", "awards", "achievements"])
+        provider_tokens = {"aws", "azure", "google", "oracle", "coursera", "udemy", "nptel", "kubernetes", "scrum"}
+        has_cert = (
+            any(key in normalized for key in ["certification", "certifications"])
+            or normalized in {"certificate", "certificates"}
+        )
+        has_award = any(key in normalized for key in ["honors", "awards", "achievements", "accomplishments"])
+
+        if has_cert and any(token in normalized for token in provider_tokens) and normalized not in {
+            "certification",
+            "certifications",
+            "certificate",
+            "certificates",
+            "certifications achievements",
+            "certifications & achievements",
+        }:
+            has_cert = False
         if has_cert and has_award:
             return "awards_certifications"
 
@@ -562,7 +588,7 @@ class AnalyzePipeline:
             left = match.group(1)
             right = match.group(2)
             right_lower = right.lower()
-            if right_lower in {"and", "or", "for", "with", "the", "to", "in", "on", "of"}:
+            if right_lower in {"and", "or", "for", "with", "the", "to", "in", "on", "of", "out", "form", "data", "rank", "like", "than", "at", "by"}:
                 return match.group(0)
 
             if len(left) >= 3 and len(right) <= 4 and (len(left) + len(right)) <= 18:
@@ -646,14 +672,27 @@ class AnalyzePipeline:
             "Ledthe": "Led the",
             "Builtan": "Built an",
             "Createdan": "Created an",
+            "Createdanew": "Created a new",
             "Developedan": "Developed an",
             "ofthe": "of the",
             "formorethan": "for more than",
             "andtechnical": "and technical",
             "operationsand": "operations and",
+            "TechnicalHead": "Technical Head",
+            "GoogleData": "Google Data",
+            "Pupilrank": "Pupil rank",
+            "roundat": "round at",
+            "Hacksout": "Hacks out",
+            "platformslike": "platforms like",
+            "systemby": "system by",
+            "optimizingform": "optimizing form",
+            "accuratedata": "accurate data",
         }
         for source, target in replacements.items():
             text = text.replace(source, target)
+
+        text = re.sub(r"\bHacksout\b", "Hacks out", text, flags=re.IGNORECASE)
+        text = re.sub(r"\boptimizingform\b", "optimizing form", text, flags=re.IGNORECASE)
 
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"\s+([,.;:!?])", r"\1", text)
@@ -673,7 +712,9 @@ class AnalyzePipeline:
                 text = re.sub(rf"(?<=[a-z])({chunk})(?=[a-z])", r" \1 ", text, flags=re.IGNORECASE)
             text = re.sub(r"\s+", " ", text)
 
-        text = re.sub(r"([a-z]{3,})(and|or|with|for|to|from|in|on|by)([a-z]{3,})", r"\1 \2 \3", text, flags=re.IGNORECASE)
+        text = re.sub(r"\b([A-Za-z]{3,})(than|like|with|from|into|onto|over|under|about|around|between|through|before|after|during|without|within|above|below|inside|outside|against|across|behind|beyond|towards|among|beside|underneath|at|by|for)\b", r"\1 \2", text, flags=re.IGNORECASE)
+        text = re.sub(r"\b(a)(new)\b", r"\1 \2", text, flags=re.IGNORECASE)
+
         text = self._repair_split_words(text)
         return text.strip(" -")
 
@@ -682,11 +723,14 @@ class AnalyzePipeline:
         if not tokens:
             return text
 
-        stop_tokens = {"and", "or", "for", "with", "the", "to", "in", "on", "of", "by", "at", "is", "a", "an"}
+        stop_tokens = {
+            "and", "or", "for", "with", "the", "to", "in", "on", "of", "by", "at", "is", "a", "an",
+            "out", "form", "data", "rank", "like", "than",
+        }
         suffix_tokens = {
             "ing", "ion", "ions", "tion", "tions", "ed", "er", "ers", "ly", "ment", "ments",
-            "ship", "ships", "able", "ance", "ence", "ary", "ory", "form", "ents", "ized", "izer",
-            "izers", "ality", "ities", "sion", "sions", "gform", "gdata", "dary", "lity"
+            "ship", "ships", "able", "ance", "ence", "ary", "ory", "ents", "ized", "izer",
+            "izers", "ality", "ities", "sion", "sions", "gform", "gdata", "dary", "lity",
         }
 
         repaired: List[str] = []
@@ -901,16 +945,32 @@ class AnalyzePipeline:
                 continue
 
             if current_section == "awards_certifications":
+                if self._is_likely_certification_entry(line):
+                    sections["certifications"].append(line)
+                    continue
+
+                if self._is_likely_award_entry(line):
+                    sections["awards"].append(line)
+                    continue
+
                 inferred_combined = self._infer_line_section(line, current_section=None)
                 if inferred_combined in {"awards", "certifications"}:
                     sections[inferred_combined].append(line)
+                    continue
+
+                if self._is_readable_entry(line) and not self._is_education_or_year_noise(line):
+                    sections["awards"].append(line)
                 continue
 
             inferred = self._infer_line_section(line, current_section=current_section)
             if inferred == "other":
                 continue
 
-            target_section = inferred if inferred in sections else current_section
+            if current_section in {"awards", "certifications"} and inferred in {"awards", "certifications"}:
+                target_section = inferred
+            else:
+                target_section = inferred if inferred in sections else current_section
+
             if target_section in sections:
                 sections[target_section].append(line)
 
@@ -1035,7 +1095,15 @@ class AnalyzePipeline:
                 continue
             certs.append(self._compress_entry(cleaned, max_len=180))
 
-        return list(dict.fromkeys(certs))[:10]
+        ordered = list(dict.fromkeys(certs))
+        filtered: List[str] = []
+        for item in ordered:
+            item_lower = item.lower()
+            if any(item_lower != other.lower() and item_lower in other.lower() for other in ordered):
+                continue
+            filtered.append(item)
+
+        return filtered[:10]
 
     def _extract_top_projects(self, project_lines: List[str], limit: int = 3) -> List[str]:
         if not project_lines:
@@ -1332,7 +1400,13 @@ class AnalyzePipeline:
 
         section_certs = self._extract_certifications_from_section(sections["certifications"])
         detected_certs = self._extract_resume_certifications(resume_text, role_key)
-        certs = list(dict.fromkeys(section_certs + detected_certs))
+        certs_raw = list(dict.fromkeys(section_certs + detected_certs))
+        certs: List[str] = []
+        for item in certs_raw:
+            lowered = item.lower().strip()
+            if any(lowered != other.lower().strip() and lowered in other.lower().strip() for other in certs_raw):
+                continue
+            certs.append(item)
         awards = self._extract_awards(sections["awards"])
         cert_tokens = {token.lower() for cert in certs for token in re.findall(r"[a-zA-Z0-9+#./-]+", cert)}
         filtered_awards: List[str] = []

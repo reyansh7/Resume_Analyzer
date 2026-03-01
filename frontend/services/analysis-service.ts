@@ -30,10 +30,85 @@ export type AnalysisResult = {
   transferableSkills: string[];
   roadmap: Array<{ title: string; description: string }>;
   certifications: string[];
+  overall_score?: number;
+  confidence?: number;
+  breakdown?: {
+    technical_skills: number;
+    soft_skills: number;
+    experience_match: number;
+    education_match: number;
+  };
+  explanations?: {
+    technical_skills: string;
+    soft_skills: string;
+    experience_match: string;
+    education_match: string;
+  };
+  skill_insights?: Array<{
+    skill: string;
+    detected_from: string;
+    confidence: number;
+    related_missing_skills: string[];
+    improvement_suggestions: string;
+    resources: Array<{ title: string; type: string; link: string }>;
+  }>;
+  roadmap_advanced?: {
+    "30_day_plan": Array<{
+      skill: string;
+      title: string;
+      difficulty: "Beginner" | "Intermediate" | "Advanced";
+      estimated_hours: number;
+      priority_score: number;
+      suggested_courses: string[];
+      youtube_links: string[];
+      leetcode_problems: string[];
+      details: string;
+    }>;
+    "60_day_plan": Array<{
+      skill: string;
+      title: string;
+      difficulty: "Beginner" | "Intermediate" | "Advanced";
+      estimated_hours: number;
+      priority_score: number;
+      suggested_courses: string[];
+      youtube_links: string[];
+      leetcode_problems: string[];
+      details: string;
+    }>;
+    "90_day_plan": Array<{
+      skill: string;
+      title: string;
+      difficulty: "Beginner" | "Intermediate" | "Advanced";
+      estimated_hours: number;
+      priority_score: number;
+      suggested_courses: string[];
+      youtube_links: string[];
+      leetcode_problems: string[];
+      details: string;
+    }>;
+  };
+  rewrite_suggestions?: Array<{
+    section: string;
+    before: string;
+    after: string;
+    improvement_type: string;
+  }>;
+  ats_analysis?: {
+    ats_score: number;
+    status: "ATS Safe" | "Needs Optimization" | "High Rejection Risk";
+    issues: string[];
+  };
 };
 
 export async function uploadResume(formData: FormData) {
   const { data } = await api.post<AnalysisResult>("/resume/analyze", formData, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  return data;
+}
+
+export async function uploadResumeV2(formData: FormData) {
+  const { data } = await api.post<AnalysisResult>("/resume/analyze/v2", formData, {
     headers: { "Content-Type": "multipart/form-data" }
   });
   return data;

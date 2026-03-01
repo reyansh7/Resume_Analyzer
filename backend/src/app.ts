@@ -30,7 +30,8 @@ app.get("/api", (_req, res) => {
       health: "/health",
       authLogin: "/api/auth/login",
       onboarding: "/api/onboarding",
-      resumeAnalyze: "/api/resume/analyze"
+      resumeAnalyze: "/api/resume/analyze",
+      resumeAnalyzeV2: "/api/resume/analyze/v2"
     }
   });
 });

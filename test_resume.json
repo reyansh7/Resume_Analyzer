@@ -1,0 +1,7 @@
+{
+  "resumeText": "John Doe\nEXPERIENCE\nMarketing Intern at ABC Org (2024) - Led public opinion research campaigns. Coordinated outreach strategy with cross-functional teams.\nPROJECTS\nSignalist: Built a real-time stock tracker web app using React and FastAPI.\nCERTIFICATIONS\nAWS Certified Cloud Practitioner\nGoogle Data Analytics Professional Certificate\nAWARDS\nWinner, Smart India Hackathon 2025\nEDUCATION\nSPIT CGPA 8.37\nSKILLS\nPython, JavaScript, React, AWS, Data Analysis, FastAPI",
+  "targetRole": "Software Engineer",
+  "profession": "Software Engineer",
+  "experienceLevel": "intermediate",
+  "currentSkills": ["Python", "JavaScript", "React"]
+}

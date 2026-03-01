@@ -30,20 +30,14 @@ export function MatchScoreRing({ score }: { score: number }) {
           cx="90"
           cy="90"
           r="70"
-          stroke="url(#gradient)"
+          stroke="currentColor"
           strokeWidth="12"
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           fill="none"
-          className="transition-all duration-1000"
+          className="text-primary transition-all duration-1000"
         />
-        <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#6366f1" />
-            <stop offset="100%" stopColor="#06b6d4" />
-          </linearGradient>
-        </defs>
       </svg>
       <div className="absolute text-center">
         <p className="text-4xl font-semibold">{displayScore}%</p>

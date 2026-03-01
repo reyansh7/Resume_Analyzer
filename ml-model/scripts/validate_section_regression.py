@@ -19,6 +19,9 @@ BASE_RESUME_SECTIONS = {
     "AWARDS": [
         "Winner, Smart India Hackathon 2025",
         "Finalist, National Innovation Challenge 2024",
+        "Achieved Pupil rank on Codeforces (Maximum rating of 1232)",
+        "Qualified for the penultimate round at Mumbai Hacks out of 20000+ innovators",
+        "Solved 500+ problems on competitive programming platforms like Leetcode and Codeforces",
     ],
     "EDUCATION": [
         "SPIT CGPA 8.37",
@@ -88,6 +91,20 @@ def main() -> None:
 
     assert_non_contamination(pipeline, combined_header_resume)
     print("[PASS] combined awards+certifications header")
+
+    achievements_header_resume = "\n".join(
+        [
+            "CERTIFICATIONS & ACHIEVEMENTS",
+            *BASE_RESUME_SECTIONS["AWARDS"],
+            *BASE_RESUME_SECTIONS["CERTIFICATIONS"],
+            "PROJECTS",
+            *BASE_RESUME_SECTIONS["PROJECTS"],
+            "EXPERIENCE",
+            *BASE_RESUME_SECTIONS["EXPERIENCE"],
+        ]
+    )
+    assert_non_contamination(pipeline, achievements_header_resume)
+    print("[PASS] combined certifications+achievements header")
     print("Section regression checks passed.")
 
 

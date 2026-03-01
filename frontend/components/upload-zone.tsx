@@ -1,15 +1,21 @@
 "use client";
 
-import { UploadCloud } from "lucide-react";
+import Image from "next/image";
+import { UploadCloud, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import pdfPreview from "@/app/pdf.png";
 
 type UploadZoneProps = {
   dragging: boolean;
+  selectedFile: File | null;
   onSelectFile: (file: File) => void;
+  onClearFile: () => void;
   setDragging: (value: boolean) => void;
 };
 
-export function UploadZone({ dragging, onSelectFile, setDragging }: UploadZoneProps) {
+export function UploadZone({ dragging, selectedFile, onSelectFile, onClearFile, setDragging }: UploadZoneProps) {
+  const hasPdf = Boolean(selectedFile && selectedFile.type === "application/pdf");
+
   return (
     <label
       className={cn(
@@ -28,10 +34,35 @@ export function UploadZone({ dragging, onSelectFile, setDragging }: UploadZonePr
         if (file) onSelectFile(file);
       }}
     >
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-400/15 via-cyan-300/15 to-violet-300/15 opacity-80" />
-      <UploadCloud className="relative h-10 w-10 text-primary" />
-      <p className="relative text-lg font-medium">Drop your resume PDF here</p>
-      <p className="relative text-sm text-muted-foreground">or click to browse your file</p>
+      <div className="absolute inset-0 rounded-2xl bg-secondary/20 opacity-90" />
+      {hasPdf ? (
+        <>
+          <button
+            type="button"
+            aria-label="Clear selected PDF"
+            className="absolute right-3 top-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/50 bg-primary/10 text-sm font-bold text-primary transition hover:bg-primary/20"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClearFile();
+            }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-primary/25 bg-white/80 p-1 shadow-sm dark:bg-white/10">
+            <Image src={pdfPreview} alt="PDF uploaded" className="h-full w-full object-contain" priority />
+          </div>
+          <p className="relative text-lg font-semibold text-primary">PDF Selected</p>
+          <p className="relative max-w-[90%] truncate text-sm text-muted-foreground">{selectedFile?.name}</p>
+          <p className="relative text-xs text-muted-foreground">Drop another PDF or click to replace</p>
+        </>
+      ) : (
+        <>
+          <UploadCloud className="relative h-10 w-10 text-primary" />
+          <p className="relative text-lg font-medium">Drop your resume PDF here</p>
+          <p className="relative text-sm text-muted-foreground">or click to browse your file</p>
+        </>
+      )}
       <input
         type="file"
         accept="application/pdf"
