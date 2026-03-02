@@ -52,15 +52,12 @@ Use **three terminals** (frontend, backend, ml-model).
 Make sure PostgreSQL is running and a database named `resume_analyzer` exists.
 
 ### 2) Run ML service
-
 ```bash
 cd ml-model
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-
-/ml-model/.venv/Scripts/python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Optional env file:

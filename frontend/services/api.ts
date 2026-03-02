@@ -2,7 +2,16 @@ import axios from "axios";
 
 function resolveBackendBaseUrl() {
   const raw = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080/api";
-  const trimmed = raw.replace(/\/+$/, "");
+  let trimmed = raw.trim().replace(/\/+$/, "");
+
+  if (trimmed.startsWith(":")) {
+    trimmed = `http://localhost${trimmed}`;
+  } else if (/^localhost:\d+/i.test(trimmed)) {
+    trimmed = `http://${trimmed}`;
+  } else if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = `http://${trimmed}`;
+  }
+
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
 

@@ -178,7 +178,7 @@ export default function LandingPage() {
     <main className="relative overflow-hidden bg-background text-foreground transition-colors duration-300">
       {/* Animated background boxes */}
       <div className="fixed inset-0 z-0 overflow-hidden opacity-30 dark:opacity-20 pointer-events-none">
-        <Boxes />
+
       </div>
 
       {/* Page content above background */}

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Resume Analyzer AI",
   description: "Premium AI-powered resume and skill gap analyzer",
   icons: {
-    icon: "/icon.svg"
+    icon: "/icon.png"
   }
 };
 
