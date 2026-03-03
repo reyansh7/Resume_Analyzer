@@ -265,7 +265,7 @@ export default function OnboardingPage() {
 
   if (checkingGuard) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-20">
+      <main className="mx-auto max-w-3xl px-4 py-12 sm:py-20">
         <Card>
           <p className="text-sm text-muted-foreground">Checking onboarding status...</p>
         </Card>
@@ -274,8 +274,8 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-20">
-      <Card className="space-y-8">
+    <main className="mx-auto max-w-3xl px-4 py-10 sm:py-20">
+      <Card className="space-y-6 sm:space-y-8">
         <div>
           <p className="text-sm text-muted-foreground">Step {step} of 4</p>
           <Progress value={progress} />
@@ -292,7 +292,7 @@ export default function OnboardingPage() {
           >
             {step === 1 && (
               <>
-                <h2 className="text-2xl font-semibold">Select your professional domain</h2>
+                <h2 className="text-xl font-semibold sm:text-2xl">Select your professional domain</h2>
                 <p className="text-sm text-muted-foreground">
                   Pick the closest category to your background. These categories align with our resume training dataset.
                 </p>
@@ -320,7 +320,7 @@ export default function OnboardingPage() {
 
             {step === 2 && (
               <>
-                <h2 className="text-2xl font-semibold">Target role & experience</h2>
+                <h2 className="text-xl font-semibold sm:text-2xl">Target role & experience</h2>
                 <p className="text-sm text-muted-foreground">
                   Follow-up questions now adapt to your selected domain so the analysis and gap suggestions stay field-specific.
                 </p>
@@ -381,7 +381,7 @@ export default function OnboardingPage() {
 
             {step === 3 && (
               <>
-                <h2 className="text-2xl font-semibold">Current skills</h2>
+                <h2 className="text-xl font-semibold sm:text-2xl">Current skills</h2>
                 <Input placeholder={selectedSkillHint.placeholder} value={form.skills} onChange={(e) => setForm((f) => ({ ...f, skills: e.target.value }))} />
                 <p className="text-sm text-muted-foreground">Tip: {selectedSkillHint.tip}</p>
               </>
@@ -389,14 +389,14 @@ export default function OnboardingPage() {
 
             {step === 4 && (
               <>
-                <h2 className="text-2xl font-semibold">Career goal</h2>
+                <h2 className="text-xl font-semibold sm:text-2xl">Career goal</h2>
                 <Input placeholder="Example: Become a Senior Data Analyst in 12 months" value={form.goal} onChange={(e) => setForm((f) => ({ ...f, goal: e.target.value }))} />
               </>
             )}
           </motion.div>
         </AnimatePresence>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="ghost" onClick={prev} disabled={step === 1}>Back</Button>
           {step < 4 ? <Button onClick={next} disabled={!canProceed}>Next</Button> : <Button onClick={finish}>Continue to Upload</Button>}
         </div>

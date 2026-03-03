@@ -13,6 +13,32 @@ import { errorMiddleware } from "./middleware/error.middleware";
 
 export const app = express();
 
+const corsOriginTokens = env.CORS_ORIGIN
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesCorsOrigin(origin: string) {
+  for (const token of corsOriginTokens) {
+    if (token === origin) {
+      return true;
+    }
+
+    if (token.includes("*")) {
+      const pattern = `^${escapeRegex(token).replace(/\\\*/g, "[^.]+")}$`;
+      if (new RegExp(pattern, "i").test(origin)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
@@ -37,7 +63,14 @@ app.use(
 
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin || matchesCorsOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     credentials: true
   })
 );

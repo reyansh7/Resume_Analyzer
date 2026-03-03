@@ -21,7 +21,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(10),
   JWT_EXPIRES_IN: z.string().default("1d"),
   JWT_COOKIE_NAME: z.string().default("access_token"),
-  CORS_ORIGIN: z.string().url(),
+  CORS_ORIGIN: z.string().min(1),
   ML_SERVICE_URL: z.string().url(),
   STORE_RAW_RESUME_TEXT: booleanFromEnv.default(false),
   RESUME_TEXT_MAX_CHARS: z.coerce.number().int().positive().default(4000),
@@ -51,6 +51,42 @@ const envSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Production MongoDB connection must enforce TLS. Use mongodb+srv://... or add ?tls=true to MONGODB_URI."
+      });
+    }
+  }
+
+  const corsOrigins = value.CORS_ORIGIN
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  if (corsOrigins.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "CORS_ORIGIN must include at least one origin."
+    });
+  }
+
+  for (const origin of corsOrigins) {
+    const isWildcardHttps = /^https:\/\/\*\.[a-z0-9.-]+$/i.test(origin);
+    const isValidAbsoluteUrl = /^https?:\/\//i.test(origin);
+
+    if (isWildcardHttps) continue;
+
+    if (!isValidAbsoluteUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `CORS_ORIGIN entry \"${origin}\" is invalid. Use full URL(s) or wildcard like https://*.vercel.app`
+      });
+      continue;
+    }
+
+    try {
+      new URL(origin);
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `CORS_ORIGIN entry \"${origin}\" is not a valid URL.`
       });
     }
   }

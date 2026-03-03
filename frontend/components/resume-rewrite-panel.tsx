@@ -13,6 +13,26 @@ type RewriteSuggestion = {
   improvement_type: string;
 };
 
+function sanitizeAfterText(value: string) {
+  const source = (value || "").trim();
+  if (!source) return source;
+
+  let cleaned = source
+    .replace(/,\s*(?:improving|improved|increase(?:d|ing)?)\s+efficiency\s+by\s+[^,.!?]+%?\.?/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  if (cleaned.endsWith(",")) {
+    cleaned = cleaned.slice(0, -1).trim();
+  }
+
+  if (cleaned.length > 0 && !/[.!?]$/.test(cleaned)) {
+    cleaned = `${cleaned}.`;
+  }
+
+  return cleaned;
+}
+
 export function ResumeRewritePanel({ rewrites = [] }: { rewrites?: RewriteSuggestion[] }) {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -30,6 +50,7 @@ export function ResumeRewritePanel({ rewrites = [] }: { rewrites?: RewriteSugges
     <div className="space-y-3">
       {rewrites.map((item, index) => {
         const key = `${item.section}-${index}`;
+        const sanitizedAfter = sanitizeAfterText(item.after);
         return (
           <motion.div key={key} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }}>
             <Card className="space-y-3">
@@ -44,10 +65,10 @@ export function ResumeRewritePanel({ rewrites = [] }: { rewrites?: RewriteSugges
                 </div>
                 <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
                   <p className="text-xs font-medium text-muted-foreground">After</p>
-                  <p className="mt-1 text-sm">{item.after}</p>
+                  <p className="mt-1 text-sm">{sanitizedAfter}</p>
                 </div>
               </div>
-              <Button variant="secondary" onClick={() => copy(item.after, key)}>
+              <Button variant="secondary" onClick={() => copy(sanitizedAfter, key)}>
                 <Copy className="mr-2 h-3.5 w-3.5" /> {copied === key ? "Copied" : "Copy Improved Bullet"}
               </Button>
             </Card>

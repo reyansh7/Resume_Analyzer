@@ -246,22 +246,22 @@ export default function LandingPage() {
         </div>
 
         {/* NEW HERO SECTION - 2 COLUMN LAYOUT */}
-        <section ref={heroRef} className="mx-auto max-w-7xl px-4 pt-4 pb-10 lg:pt-8 lg:pb-16">
-          <div className="grid grid-cols-1 gap-16 lg:grid-cols-[1fr_500px] xl:grid-cols-[1fr_600px] lg:gap-12 items-center">
+        <section ref={heroRef} className="mx-auto max-w-7xl px-4 pt-4 pb-10 md:pt-6 md:pb-12 lg:pt-8 lg:pb-16">
+          <div className="grid grid-cols-1 gap-10 md:gap-12 lg:grid-cols-[1fr_500px] xl:grid-cols-[1fr_600px] lg:gap-12 items-center">
 
             {/* LEFT SIDE: Content */}
             <div ref={leftColRef} className="space-y-8 flex flex-col items-center text-center lg:items-start lg:text-left relative z-10 w-full">
               {/* Subtle radial glow */}
-              <div className="absolute -left-20 top-0 h-[400px] w-[400px] rounded-full bg-white/40 dark:bg-teal-500/5 blur-[100px] -z-10 pointer-events-none" />
+              <div className="absolute -left-16 top-0 h-[280px] w-[280px] sm:h-[360px] sm:w-[360px] rounded-full bg-white/40 dark:bg-teal-500/5 blur-[80px] sm:blur-[100px] -z-10 pointer-events-none" />
 
-              <h1 className="hero-animate text-balance text-5xl font-bold leading-[1.1] tracking-tight text-slate-900 dark:text-slate-50 md:text-6xl lg:text-7xl">
+              <h1 className="hero-animate text-balance text-4xl font-bold leading-[1.1] tracking-tight text-slate-900 dark:text-slate-50 sm:text-5xl md:text-6xl lg:text-7xl">
                 See your career the <br className="hidden lg:block" />
                 <span className="text-primary font-serif italic font-normal tracking-normal text-[1.1em] leading-none block mt-2">
                   way recruiters do.
                 </span>
               </h1>
 
-              <p className="hero-animate max-w-xl text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+              <p className="hero-animate max-w-xl text-base text-slate-600 dark:text-slate-300 leading-relaxed font-medium sm:text-lg">
                 Uncover skill gaps, match to your dream jobs, and build a step-by-step roadmap, all with powerful AI insights.
               </p>
 
@@ -280,7 +280,7 @@ export default function LandingPage() {
             </div>
 
             {/* RIGHT SIDE: Floating Dashboard Mockup */}
-            <div className="perspective-1200 pointer-events-none relative w-full max-w-[500px] mx-auto lg:max-w-none lg:mx-0 min-h-[450px]">
+            <div className="perspective-1200 pointer-events-none relative w-full max-w-[500px] mx-auto lg:max-w-none lg:mx-0 min-h-[360px] sm:min-h-[420px] lg:min-h-[450px]">
               {/* Decorative Elements around Mockup */}
               <div className="absolute -z-10 top-1/2 -right-12 h-64 w-64 rounded-full bg-teal-500/10 dark:bg-teal-500/20 blur-[80px]" />
               <div className="absolute -z-10 -bottom-12 -left-12 h-48 w-48 rounded-full bg-blue-500/5 dark:bg-blue-500/10 blur-[60px]" />
@@ -288,7 +288,7 @@ export default function LandingPage() {
               {/* CARD 1: Main Browser Window */}
               <div
                 ref={mockupRef}
-                className="absolute left-0 top-0 w-full max-w-[460px] overflow-hidden rounded-2xl bg-[#FDFCFB] dark:bg-[#0F1629] p-2 flex flex-col will-change-transform"
+                className="absolute left-0 top-0 w-full max-w-[420px] sm:max-w-[460px] overflow-hidden rounded-2xl bg-[#FDFCFB] dark:bg-[#0F1629] p-2 flex flex-col will-change-transform"
                 style={{
                   transform: "rotateY(-18deg) rotateX(6deg)",
                   transformStyle: "preserve-3d",
@@ -379,7 +379,7 @@ export default function LandingPage() {
 
               {/* CARD 2: Floating Stats Overlap */}
               <div
-                className="mockup-float-card absolute top-10 -right-6 lg:-right-12 w-[280px] bg-white dark:bg-[#151E32] rounded-2xl p-5 border border-slate-100 dark:border-slate-700 shadow-[0_30px_60px_-15px_rgba(15,23,42,0.15)] dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] transform-style-3d backdrop-blur-md"
+                className="mockup-float-card absolute top-6 right-0 sm:top-10 sm:-right-6 lg:-right-12 w-[220px] sm:w-[260px] lg:w-[280px] bg-white dark:bg-[#151E32] rounded-2xl p-3 sm:p-4 lg:p-5 border border-slate-100 dark:border-slate-700 shadow-[0_30px_60px_-15px_rgba(15,23,42,0.15)] dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] transform-style-3d backdrop-blur-md"
                 style={{ transform: "rotateY(-8deg) rotateX(2deg) translateZ(30px)" }}
               >
                 {/* Analytics Top Section */}
@@ -467,7 +467,7 @@ export default function LandingPage() {
           </div>
 
           {/* Stats Section below Hero Grid */}
-          <div className="grid max-w-4xl grid-cols-1 sm:grid-cols-3 gap-8 pt-10 mx-auto text-center border-t border-slate-200/60 dark:border-slate-800/60 mt-12 relative z-10">
+          <div className="grid max-w-4xl grid-cols-1 sm:grid-cols-3 gap-8 pt-14 mx-auto text-center mt-32 sm:mt-24 lg:mt-20 relative z-10">
             <div className="reveal space-y-3">
               <p className="text-4xl lg:text-5xl font-semibold text-slate-800 dark:text-slate-200 tracking-tight"><StatCounter target={98} suffix="%" /></p>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400 tracking-wide uppercase">Highly Accurate</p>
@@ -619,9 +619,7 @@ export default function LandingPage() {
                 Not a vague "learn Python" suggestion. A precise, sequenced plan of courses, projects, and milestones—ranked by impact on your score.
               </p>
               <div className="pt-4">
-                <Button className="rounded-full px-8 py-6 text-base font-bold bg-gradient-to-r from-teal-600 to-emerald-500 dark:from-teal-600 dark:to-emerald-500 text-white border-0 shadow-[0_0_20px_rgba(20,184,166,0.3)] dark:shadow-[0_0_20px_rgba(20,184,166,0.4)] hover:shadow-[0_0_30px_rgba(20,184,166,0.5)] dark:hover:shadow-[0_0_30px_rgba(20,184,166,0.6)] hover:-translate-y-0.5 transition-all">
-                  Get My Roadmap <ArrowRight className="ml-2 w-4 h-4" />
-                </Button>
+              
               </div>
             </div>
             <div className="flex-1 w-full pl-0 md:pl-12 roadmap-container">

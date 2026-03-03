@@ -151,7 +151,7 @@ export function DashboardCharts({ strengths, gaps, extractedSkills = [], confide
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <div className="glass-card h-80 p-4">
+      <div className="glass-card h-[300px] sm:h-80 p-3 sm:p-4">
         <p className="mb-2 text-sm font-medium">Skill Alignment Radar</p>
         {isLowConfidence && (
           <p className="mb-2 text-xs text-muted-foreground">
@@ -161,18 +161,18 @@ export function DashboardCharts({ strengths, gaps, extractedSkills = [], confide
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={radarData}>
             <PolarGrid />
-            <PolarAngleAxis dataKey="skill" />
+            <PolarAngleAxis dataKey="skill" tick={{ fontSize: 11 }} />
             <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={isLowConfidence ? 0.2 : 0.35} />
           </RadarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="glass-card h-80 p-4">
+      <div className="glass-card h-[300px] sm:h-80 p-3 sm:p-4">
         <p className="mb-2 text-sm font-medium">Priority Skill Gaps</p>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={gapData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="skill" />
+            <XAxis dataKey="skill" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={50} />
             <YAxis domain={[0, 100]} />
             <Tooltip />
             <Bar dataKey="gap" fill="hsl(var(--primary))" fillOpacity={isLowConfidence ? 0.65 : 1} radius={[8, 8, 0, 0]} />

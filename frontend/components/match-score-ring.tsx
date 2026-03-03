@@ -23,7 +23,7 @@ export function MatchScoreRing({ score }: { score: number }) {
   }, [normalized]);
 
   return (
-    <div className="relative flex h-48 w-48 items-center justify-center">
+    <div className="relative flex h-40 w-40 sm:h-48 sm:w-48 items-center justify-center">
       <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
         <circle cx="90" cy="90" r="70" stroke="currentColor" strokeWidth="12" className="text-secondary" fill="none" />
         <circle
@@ -40,7 +40,7 @@ export function MatchScoreRing({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute text-center">
-        <p className="text-4xl font-semibold">{displayScore}%</p>
+        <p className="text-3xl sm:text-4xl font-semibold">{displayScore}%</p>
         <p className="text-xs text-muted-foreground">Match Score</p>
       </div>
     </div>

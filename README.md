@@ -185,6 +185,67 @@ Generated files:
 
 ---
 
+## Vercel deployment checklist
+
+### Architecture for production
+
+- Deploy `frontend/` on **Vercel**.
+- Deploy `backend/` on a long-running Node host (Render/Railway/Fly/VM).
+- Deploy `ml-model/` on a long-running Python host (Render/Railway/VM).
+
+`backend/` and `ml-model/` are persistent services and should not be deployed as Vercel serverless functions.
+
+### 1) Frontend (Vercel)
+
+In Vercel project settings for `frontend/`, set:
+
+```dotenv
+NEXT_PUBLIC_BACKEND_URL=https://your-backend-domain.com/api
+```
+
+Then deploy the `frontend/` root directory.
+
+### 2) Backend (Node host)
+
+Set these env vars for `backend/`:
+
+```dotenv
+NODE_ENV=production
+PORT=8080
+MONGODB_URI=your_mongodb_uri
+MONGODB_DB_NAME=resume_analyzer
+JWT_SECRET=your_strong_random_secret_min_32_chars
+JWT_EXPIRES_IN=1d
+JWT_COOKIE_NAME=access_token
+CORS_ORIGIN=https://your-app.vercel.app,https://*.vercel.app
+ML_SERVICE_URL=https://your-ml-service-domain.com
+STORE_RAW_RESUME_TEXT=false
+RESUME_TEXT_MAX_CHARS=4000
+USE_IN_MEMORY_DB=false
+```
+
+Notes:
+- `CORS_ORIGIN` supports comma-separated origins and wildcard subdomain patterns like `https://*.vercel.app`.
+- In production, weak `JWT_SECRET` values are rejected at startup.
+
+### 3) ML service (Python host)
+
+Deploy `ml-model/` with:
+
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### 4) Final verification
+
+- Open frontend URL on Vercel.
+- Login/register succeeds.
+- Resume upload and `/api/resume/analyze/v2` succeeds.
+- Backend `/health` and ML `/health` both return `ok`.
+
+---
+
 ## Deployment security hardening
 
 ### 1) Strong JWT secret

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,7 @@ import { RoadmapTimeline } from "@/components/roadmap-timeline";
 import { ResumeRewritePanel } from "@/components/resume-rewrite-panel";
 import { AtsCompatibilityCard } from "@/components/ats-compatibility-card";
 import { FloatingParticles } from "@/components/floating-particles";
+import { AnalysisLoadingOverlay } from "@/components/analysis-loading-overlay";
 import { ErrorState, getAnalysisErrorInfo } from "@/utils/analysis-errors";
 
 type Tab = "overview" | "gaps" | "roadmap" | "improve-resume" | "ats";
@@ -215,14 +216,8 @@ export default function DashboardPage() {
   const [errorState, setErrorState] = useState<ErrorState | null>(null);
   const [preflight, setPreflight] = useState<PreflightState | null>(null);
   const [storedResult, setStoredResult] = useState<AnalysisResult | null>(null);
-  const stepTimersRef = useRef<number[]>([]);
-
-  const clearStepTimers = () => {
-    for (const timer of stepTimersRef.current) {
-      window.clearTimeout(timer);
-    }
-    stepTimersRef.current = [];
-  };
+  const [showLoadingOverlay, setShowLoadingOverlay] = useState(false);
+  const [requestSettled, setRequestSettled] = useState(true);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -247,13 +242,14 @@ export default function DashboardPage() {
     },
     onMutate: () => {
       setErrorState(null);
-      clearStepTimers();
+      setRequestSettled(false);
+      setShowLoadingOverlay(true);
     },
     onSuccess: () => {
-      clearStepTimers();
+      setRequestSettled(true);
     },
     onError: (error) => {
-      clearStepTimers();
+      setRequestSettled(true);
 
       if (isAxiosError(error)) {
         const status = error.response?.status;
@@ -274,12 +270,6 @@ export default function DashboardPage() {
     window.localStorage.setItem(STORED_ANALYSIS_KEY, JSON.stringify(mutation.data));
     setStoredResult(mutation.data);
   }, [mutation.data]);
-
-  useEffect(() => {
-    return () => {
-      clearStepTimers();
-    };
-  }, []);
 
   const result = useMemo(() => {
     const activeData = mutation.data ?? storedResult;
@@ -328,13 +318,18 @@ export default function DashboardPage() {
 
   return (
     <main>
+      <AnalysisLoadingOverlay
+        visible={showLoadingOverlay}
+        requestInFlight={!requestSettled}
+        onFinished={() => setShowLoadingOverlay(false)}
+      />
       <FloatingParticles />
       <Navbar />
-      <div className="mx-auto max-w-6xl space-y-8 px-4 py-10">
+      <div className="mx-auto max-w-6xl space-y-6 px-3 py-6 sm:space-y-8 sm:px-4 sm:py-10">
         <Card className="border-primary/20">
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:gap-8">
             <div>
-              <h1 className="text-3xl font-semibold">Skill Gap Intelligence Dashboard</h1>
+              <h1 className="text-2xl font-semibold leading-tight sm:text-3xl">Skill Gap Intelligence Dashboard</h1>
               <p className="mt-2 text-muted-foreground">Upload your resume for advanced multi-dimensional scoring, ATS checks, roadmap planning, and rewrite suggestions.</p>
               <div className="mt-6">
                 <UploadZone
@@ -362,7 +357,7 @@ export default function DashboardPage() {
                 </ul>
               )}
 
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                 <Button
                   disabled={!file || mutation.isPending}
                   onClick={() => {
@@ -384,7 +379,7 @@ export default function DashboardPage() {
                 >
                   {mutation.isPending ? "Analyzing..." : "Analyze Resume"}
                 </Button>
-                {file && <span className="text-sm text-muted-foreground">{file.name}</span>}
+                {file && <span className="max-w-full truncate text-sm text-muted-foreground sm:max-w-[22rem]">{file.name}</span>}
               </div>
               {errorState && (
                 <div className="mt-2 rounded-lg border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-400">
@@ -405,13 +400,14 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        <div className="relative flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-secondary/30 p-2">
+        <div className="relative -mx-1 overflow-x-auto rounded-2xl border border-border/70 bg-secondary/30 p-2 sm:mx-0">
+          <div className="flex min-w-max gap-2">
           {tabs.map((item) => (
             <button
               key={item.value}
               type="button"
               onClick={() => setTab(item.value)}
-              className={`relative rounded-xl px-4 py-2 text-sm font-medium transition-colors ${tab === item.value ? "text-primary dark:text-primary" : "text-muted-foreground hover:text-foreground"
+              className={`relative whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${tab === item.value ? "text-primary dark:text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               {tab === item.value && (
@@ -424,6 +420,7 @@ export default function DashboardPage() {
               {item.label}
             </button>
           ))}
+          </div>
         </div>
 
         <AnimatePresence mode="wait">

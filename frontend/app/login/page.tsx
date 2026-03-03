@@ -96,8 +96,8 @@ export default function LoginPage() {
         </div>
       </section>
 
-      <section className="relative flex items-center justify-center p-6">
-        <div className="absolute right-6 top-6"><ThemeToggle /></div>
+      <section className="relative flex items-center justify-center p-4 sm:p-6">
+        <div className="absolute right-4 top-4 sm:right-6 sm:top-6"><ThemeToggle /></div>
         <motion.form
           onSubmit={
             mode === "signin"
@@ -105,7 +105,7 @@ export default function LoginPage() {
               : handleSubmitSignUp(onSignUpSubmit)
           }
           animate={shake ? { x: [-12, 12, -8, 8, 0] } : { x: 0 }}
-          className="glass-card w-full max-w-xl space-y-6 p-8 sm:p-10"
+          className="glass-card w-full max-w-xl space-y-5 p-5 sm:space-y-6 sm:p-8 md:p-10"
         >
           <AnimatePresence mode="wait">
             {mode === "signin" ? (
@@ -115,10 +115,10 @@ export default function LoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-6 rounded-xl border border-border/60 bg-background/40 p-6"
+                className="space-y-5 rounded-xl border border-border/60 bg-background/40 p-4 sm:space-y-6 sm:p-6"
               >
                 <div>
-                  <h2 className="text-2xl font-semibold">Welcome back</h2>
+                  <h2 className="text-xl font-semibold sm:text-2xl">Welcome back</h2>
                   <p className="text-sm text-muted-foreground">Sign in to continue your resume analysis.</p>
                 </div>
                 <div className="space-y-2.5">
@@ -140,10 +140,10 @@ export default function LoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-5 rounded-xl border border-border/60 bg-background/40 p-6"
+                className="space-y-4 rounded-xl border border-border/60 bg-background/40 p-4 sm:space-y-5 sm:p-6"
               >
                 <div>
-                  <h2 className="text-2xl font-semibold">Create your account</h2>
+                  <h2 className="text-xl font-semibold sm:text-2xl">Create your account</h2>
                   <p className="text-sm text-muted-foreground">Create your account. We’ll ask career questions right after sign up.</p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
