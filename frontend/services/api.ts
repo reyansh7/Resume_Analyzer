@@ -55,23 +55,18 @@ api.interceptors.response.use(
   async (error) => {
     const status = error?.response?.status as number | undefined;
     const message = error?.response?.data?.message as string | undefined;
-    const originalRequest = error?.config as (typeof error.config & { _retriedWithoutAuth?: boolean }) | undefined;
-    const shouldRetryWithCookieFallback = status === 403 && message === "Invalid token";
+    const shouldHandleExpiredSession = status === 403 && message === "Invalid token";
 
-    if (
-      typeof window !== "undefined" &&
-      shouldRetryWithCookieFallback &&
-      originalRequest &&
-      !originalRequest._retriedWithoutAuth
-    ) {
+    if (typeof window !== "undefined" && shouldHandleExpiredSession) {
       localStorage.removeItem("resume-analyzer-token");
-      originalRequest._retriedWithoutAuth = true;
 
-      if (originalRequest.headers && "Authorization" in originalRequest.headers) {
-        delete originalRequest.headers.Authorization;
+      if (error?.response?.data && typeof error.response.data === "object") {
+        error.response.data.message = "Session expired. Please login again.";
       }
 
-      return api.request(originalRequest);
+      if (error?.response) {
+        error.response.status = 401;
+      }
     }
 
     return Promise.reject(error);

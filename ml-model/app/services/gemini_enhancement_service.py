@@ -165,6 +165,69 @@ class GeminiEnhancementService:
 
         return valid or None
 
+    def generate_overview_highlights(
+        self,
+        resume_text: str,
+        target_role: str,
+        level: str,
+        experience_candidates: List[str],
+        soft_skill_candidates: List[str],
+        education_candidates: List[str],
+    ) -> dict | None:
+        if not self.enabled:
+            return None
+
+        prompt = (
+            "You are an expert resume overview summarizer for a dashboard.\n"
+            "Return concise, factual highlights in strict JSON only.\n"
+            "Do not invent facts. Use only provided resume text and candidate lists.\n"
+            "Critical rules:\n"
+            "1) experience_highlights must include ONLY clubs, committees, internships, jobs, roles, organizations, work history.\n"
+            "2) experience_highlights must NEVER include education lines (degree, school, college, university, HSC/SSC/CGPA/GPA).\n"
+            "3) soft_skills_highlights should be short phrases (2-8 words) like Communication, Leadership, Team Collaboration.\n"
+            "4) education_highlights should contain education credentials only.\n"
+            "5) Keep each list max 5 items; each item under 140 chars.\n\n"
+            f"Target role: {target_role}\n"
+            f"Experience level: {level}\n"
+            f"Experience candidates: {experience_candidates}\n"
+            f"Soft skill candidates: {soft_skill_candidates}\n"
+            f"Education candidates: {education_candidates}\n"
+            f"Resume text (first 7000 chars): {resume_text[:7000]}\n\n"
+            "Return strict JSON: "
+            "{\"experience_highlights\":[...],\"soft_skills_highlights\":[...],\"education_highlights\":[...]}"
+        )
+
+        result = self._call_json(prompt)
+        if not isinstance(result, dict):
+            return None
+
+        def _clean_list(value: object, limit: int) -> List[str]:
+            if not isinstance(value, list):
+                return []
+            out: List[str] = []
+            for item in value:
+                if not isinstance(item, str):
+                    continue
+                text = item.strip()
+                if not text:
+                    continue
+                if text not in out:
+                    out.append(text[:140])
+                if len(out) >= limit:
+                    break
+            return out
+
+        payload = {
+            "experience_highlights": _clean_list(result.get("experience_highlights"), 5),
+            "soft_skills_highlights": _clean_list(result.get("soft_skills_highlights"), 5),
+            "education_highlights": _clean_list(result.get("education_highlights"), 5),
+        }
+
+        if not payload["experience_highlights"] and not payload["soft_skills_highlights"] and not payload["education_highlights"]:
+            return None
+
+        return payload
+
     def enhance_ats_analysis(
         self,
         resume_text: str,

@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 from app.services.embedding_service import EmbeddingService
+from app.services.gemini_enhancement_service import GeminiEnhancementService
 from app.services.gemini_roadmap_service import GeminiRoadmapService
 from app.services.ollama_enhancement_service import OllamaEnhancementService
 from app.services.ollama_roadmap_service import OllamaRoadmapService
@@ -322,6 +323,7 @@ class AnalyzePipeline:
     def __init__(self) -> None:
         self.nlp_service = NlpService()
         self.embedding_service = EmbeddingService()
+        self.gemini_enhancement_service = GeminiEnhancementService()
         self.gemini_roadmap_service = GeminiRoadmapService()
         self.ollama_enhancement_service = OllamaEnhancementService()
         self.ollama_roadmap_service = OllamaRoadmapService()
@@ -1471,13 +1473,6 @@ class AnalyzePipeline:
         match_score = max(0.0, min(100.0, match_score))
 
         local_roadmap = self._build_roadmap(missing_skills, target_role, level)
-        ollama_roadmap = self.ollama_roadmap_service.generate_roadmap(
-            target_role=target_role,
-            level=level,
-            strengths=strengths,
-            skill_gaps=missing_skills,
-            max_steps=5,
-        )
         gemini_roadmap = self.gemini_roadmap_service.generate_roadmap(
             target_role=target_role,
             level=level,
@@ -1485,15 +1480,22 @@ class AnalyzePipeline:
             skill_gaps=missing_skills,
             max_steps=5,
         )
+        ollama_roadmap = self.ollama_roadmap_service.generate_roadmap(
+            target_role=target_role,
+            level=level,
+            strengths=strengths,
+            skill_gaps=missing_skills,
+            max_steps=5,
+        )
 
-        if ollama_roadmap is not None:
-            roadmap = ollama_roadmap
-            roadmap_source = "ollama"
-            roadmap_model = self.ollama_roadmap_service.model
-        elif gemini_roadmap is not None:
+        if gemini_roadmap is not None:
             roadmap = gemini_roadmap
             roadmap_source = "gemini"
             roadmap_model = self.gemini_roadmap_service.model
+        elif ollama_roadmap is not None:
+            roadmap = ollama_roadmap
+            roadmap_source = "ollama"
+            roadmap_model = self.ollama_roadmap_service.model
         else:
             roadmap = local_roadmap
             roadmap_source = "local"
@@ -1526,6 +1528,14 @@ class AnalyzePipeline:
 
         overview_source = "local"
         overview_model = None
+        gemini_overview = self.gemini_enhancement_service.generate_overview_highlights(
+            resume_text=resume_text,
+            target_role=target_role,
+            level=level,
+            experience_candidates=featured_experiences,
+            soft_skill_candidates=soft_skills_highlights,
+            education_candidates=education_highlights,
+        )
         ollama_overview = self.ollama_enhancement_service.generate_overview_highlights(
             resume_text=resume_text,
             target_role=target_role,
@@ -1534,20 +1544,28 @@ class AnalyzePipeline:
             soft_skill_candidates=soft_skills_highlights,
             education_candidates=education_highlights,
         )
-        if ollama_overview:
-            ollama_experiences = [item for item in ollama_overview.get("experience_highlights", []) if isinstance(item, str)]
-            ollama_soft = [item for item in ollama_overview.get("soft_skills_highlights", []) if isinstance(item, str)]
-            ollama_education = [item for item in ollama_overview.get("education_highlights", []) if isinstance(item, str)]
 
-            if ollama_experiences:
-                featured_experiences = ollama_experiences[:5]
-            if ollama_soft:
-                soft_skills_highlights = ollama_soft[:5]
-            if ollama_education:
-                education_highlights = ollama_education[:5]
+        selected_overview = None
+        if gemini_overview:
+            selected_overview = (gemini_overview, "gemini", self.gemini_enhancement_service.model)
+        elif ollama_overview:
+            selected_overview = (ollama_overview, "ollama", self.ollama_enhancement_service.model)
 
-            overview_source = "ollama"
-            overview_model = self.ollama_enhancement_service.model
+        if selected_overview:
+            overview_payload, source, model = selected_overview
+            model_experiences = [item for item in overview_payload.get("experience_highlights", []) if isinstance(item, str)]
+            model_soft = [item for item in overview_payload.get("soft_skills_highlights", []) if isinstance(item, str)]
+            model_education = [item for item in overview_payload.get("education_highlights", []) if isinstance(item, str)]
+
+            if model_experiences:
+                featured_experiences = model_experiences[:5]
+            if model_soft:
+                soft_skills_highlights = model_soft[:5]
+            if model_education:
+                education_highlights = model_education[:5]
+
+            overview_source = source
+            overview_model = model
 
         # Parsed structure is persisted in MongoDB for dashboard rendering.
         parsed_resume = {

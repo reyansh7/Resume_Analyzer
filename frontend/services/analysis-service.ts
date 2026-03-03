@@ -24,7 +24,7 @@ export type AnalysisResult = {
     featuredExperiences?: string[];
     educationHighlights?: string[];
     softSkillsHighlights?: string[];
-    overviewSource?: "ollama" | "local";
+    overviewSource?: "gemini" | "ollama" | "local";
     overviewModel?: string | null;
     roadmapSource?: "ollama" | "gemini" | "local";
     roadmapModel?: string | null;

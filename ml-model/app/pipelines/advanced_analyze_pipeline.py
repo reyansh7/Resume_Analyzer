@@ -150,27 +150,27 @@ class AdvancedAnalyzePipeline:
         )
 
         gap_source = "local"
-        ollama_ranked = self.ollama_enhancer.prioritize_gaps(
+        gemini_ranked = self.gemini_enhancer.prioritize_gaps(
             target_role=target_role,
             level=level,
             candidate_gaps=prioritized_gaps,
             strengths=base_result.strengths,
             limit=8,
         )
-        if ollama_ranked:
-            prioritized_gaps = ollama_ranked
-            gap_source = "ollama"
+        if gemini_ranked:
+            prioritized_gaps = gemini_ranked
+            gap_source = "gemini"
         else:
-            gemini_ranked = self.gemini_enhancer.prioritize_gaps(
+            ollama_ranked = self.ollama_enhancer.prioritize_gaps(
                 target_role=target_role,
                 level=level,
                 candidate_gaps=prioritized_gaps,
                 strengths=base_result.strengths,
                 limit=8,
             )
-            if gemini_ranked:
-                prioritized_gaps = gemini_ranked
-                gap_source = "gemini"
+            if ollama_ranked:
+                prioritized_gaps = ollama_ranked
+                gap_source = "ollama"
 
         advanced_roadmap = self.roadmap_generator.generate(
             missing_skills=prioritized_gaps,

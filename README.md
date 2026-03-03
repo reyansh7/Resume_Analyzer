@@ -102,9 +102,11 @@ python scripts/benchmark_ollama_roadmap.py --models deepseek-r1:8b llama3.1:8b -
 ```
 
 Notes:
-- Roadmap generation provider priority is: `Ollama -> Gemini -> local deterministic fallback`.
+- Roadmap generation provider priority is: `Gemini -> Ollama -> local deterministic fallback`.
+- Overview enrichment provider priority is: `Gemini -> Ollama -> local`.
+- Advanced gap prioritization provider priority is: `Gemini -> Ollama -> local`.
 - Skill gaps and scoring remain deterministic in local ML logic.
-- If Ollama or Gemini fails/times out, the service automatically falls back to local roadmap generation.
+- If Gemini or Ollama fails/times out, the service automatically falls back.
 
 ### 3) Run backend
 
@@ -236,6 +238,21 @@ Deploy `ml-model/` with:
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+Recommended production env for Gemini-first behavior:
+
+```dotenv
+USE_GEMINI_ROADMAP=true
+USE_GEMINI_ENHANCEMENTS=true
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_TIMEOUT_MS=8000
+GEMINI_MAX_RETRIES=1
+USE_OLLAMA_ROADMAP=false
+USE_OLLAMA_ENHANCEMENTS=false
+```
+
+If you later host Ollama separately, you can enable the two `USE_OLLAMA_*` flags and set `OLLAMA_BASE_URL` to that deployed Ollama endpoint.
 
 ### 4) Final verification
 
