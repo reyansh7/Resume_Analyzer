@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import { isAxiosError } from "axios";
 
 export type AnalysisResult = {
   id: string;
@@ -21,7 +22,11 @@ export type AnalysisResult = {
     featuredProject?: string | null;
     featuredProjects?: string[];
     featuredExperiences?: string[];
-    roadmapSource?: "gemini" | "local";
+    educationHighlights?: string[];
+    softSkillsHighlights?: string[];
+    overviewSource?: "ollama" | "local";
+    overviewModel?: string | null;
+    roadmapSource?: "ollama" | "gemini" | "local";
     roadmapModel?: string | null;
     modelUsed?: string;
   };
@@ -100,6 +105,15 @@ export type AnalysisResult = {
   };
 };
 
+export type ServicesHealthResult = {
+  status: "ok" | "degraded";
+  requestId?: string;
+  backend: { status: "ok" | "degraded" | "down" };
+  ml: { status: "ok" | "degraded" | "down"; detail?: unknown };
+  elapsedMs?: number;
+  action?: string;
+};
+
 export async function uploadResume(formData: FormData) {
   const { data } = await api.post<AnalysisResult>("/resume/analyze", formData, {
     headers: { "Content-Type": "multipart/form-data" }
@@ -110,6 +124,40 @@ export async function uploadResume(formData: FormData) {
 export async function uploadResumeV2(formData: FormData) {
   const { data } = await api.post<AnalysisResult>("/resume/analyze/v2", formData, {
     headers: { "Content-Type": "multipart/form-data" }
+  });
+  return data;
+}
+
+export async function analyzeResumeWithFallback(formData: FormData) {
+  try {
+    return await uploadResumeV2(formData);
+  } catch (error) {
+    if (!isAxiosError(error)) {
+      throw error;
+    }
+
+    const status = error.response?.status;
+
+    const shouldFallback =
+      status === 404 ||
+      status === 405 ||
+      status === 500 ||
+      status === 502 ||
+      status === 503 ||
+      status === 504 ||
+      (!status && (error.code === "ECONNABORTED" || error.code === "ERR_NETWORK"));
+
+    if (!shouldFallback) {
+      throw error;
+    }
+  }
+
+  return uploadResume(formData);
+}
+
+export async function fetchServicesHealth() {
+  const { data } = await api.get<ServicesHealthResult>("/health/services", {
+    timeout: 6000
   });
   return data;
 }

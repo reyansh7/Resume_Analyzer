@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import re
 import unicodedata
 from typing import Dict, List
@@ -9,6 +10,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from app.services.embedding_service import EmbeddingService
 from app.services.gemini_roadmap_service import GeminiRoadmapService
+from app.services.ollama_enhancement_service import OllamaEnhancementService
+from app.services.ollama_roadmap_service import OllamaRoadmapService
 from app.services.nlp_service import NlpService
 from app.utils.skill_dictionary import ROLE_SKILL_MAP, GENERIC_TRANSFERABLE_SKILLS, ROLE_CERTIFICATIONS
 
@@ -23,6 +26,14 @@ ROLE_CATEGORY_MAP = {
     "data analyst": "INFORMATION-TECHNOLOGY",
     "product manager": "BUSINESS-DEVELOPMENT",
     "devops engineer": "INFORMATION-TECHNOLOGY",
+    "financial analyst": "FINANCE",
+    "investment analyst": "FINANCE",
+    "accountant": "FINANCE",
+    "risk analyst": "FINANCE",
+    "mechanical engineer": "ENGINEERING",
+    "civil engineer": "ENGINEERING",
+    "electrical engineer": "ENGINEERING",
+    "industrial engineer": "ENGINEERING",
 }
 
 ROLE_ALIASES = {
@@ -39,6 +50,23 @@ ROLE_ALIASES = {
     "site reliability engineer": "devops engineer",
     "sre": "devops engineer",
     "platform engineer": "devops engineer",
+    "finance analyst": "financial analyst",
+    "fp&a analyst": "financial analyst",
+    "fp and a analyst": "financial analyst",
+    "equity analyst": "investment analyst",
+    "research analyst": "investment analyst",
+    "chartered accountant": "accountant",
+    "tax accountant": "accountant",
+    "credit risk analyst": "risk analyst",
+    "market risk analyst": "risk analyst",
+    "mech engineer": "mechanical engineer",
+    "mechanical design engineer": "mechanical engineer",
+    "civil site engineer": "civil engineer",
+    "structural engineer": "civil engineer",
+    "ee engineer": "electrical engineer",
+    "electrical design engineer": "electrical engineer",
+    "production engineer": "industrial engineer",
+    "manufacturing engineer": "industrial engineer",
 }
 
 SKILL_ALIASES = {
@@ -295,9 +323,15 @@ class AnalyzePipeline:
         self.nlp_service = NlpService()
         self.embedding_service = EmbeddingService()
         self.gemini_roadmap_service = GeminiRoadmapService()
+        self.ollama_enhancement_service = OllamaEnhancementService()
+        self.ollama_roadmap_service = OllamaRoadmapService()
+        self.use_classifier_model = os.getenv("USE_RESUME_CLASSIFIER", "false").strip().lower() in {"1", "true", "yes", "on"}
         self.classifier_bundle = self._load_classifier_bundle()
 
     def _load_classifier_bundle(self):
+        if not self.use_classifier_model:
+            return None
+
         if joblib is None:
             return None
 
@@ -1254,10 +1288,25 @@ class AnalyzePipeline:
             if not self._is_readable_entry(line):
                 continue
             text = line.lower()
+            if self._is_education_or_year_noise(line):
+                continue
             if self._infer_line_section(line) in {"projects", "other", "certifications"}:
                 continue
             if re.search(r"\b(project|streamlit|kaggle|classifier|dataset|model|nlp|tensorflow|pytorch)\b", text):
                 continue
+
+            has_experience_marker = bool(
+                re.search(
+                    r"\b(intern|internship|job|worked|work experience|employment|company|organization|club|committee|chapter|member|coordinator|lead|head|president|secretary|volunteer|executive|associate|officer|team)\b",
+                    text,
+                )
+            )
+            if not has_experience_marker:
+                continue
+
+            if re.search(r"\b(hsc|ssc|cgpa|gpa|bachelor|master|degree|education|school|college|university|xii|x)\b", text):
+                continue
+
             score = sum(weight for key, weight in keyword_weights.items() if key in text)
             score += len(re.findall(r"\b\d+(?:\.\d+)?%?\b", text))
             if len(line) > 60:
@@ -1269,6 +1318,44 @@ class AnalyzePipeline:
         scored.sort(key=lambda item: item[0], reverse=True)
         top = [line for _, line in scored[:3]]
         return list(dict.fromkeys(top))
+
+    def _extract_education_highlights(self, resume_text: str) -> List[str]:
+        highlights: List[str] = []
+        for raw_line in resume_text.splitlines():
+            line = self._clean_display_line(raw_line)
+            if not line:
+                continue
+            lowered = line.lower()
+            if not re.search(r"\b(education|bachelor|master|degree|diploma|college|university|school|hsc|ssc|cgpa|gpa|xii|x)\b", lowered):
+                continue
+            if len(line) < 4:
+                continue
+            entry = self._compress_entry(line, max_len=180)
+            if entry not in highlights:
+                highlights.append(entry)
+            if len(highlights) >= 5:
+                break
+        return highlights
+
+    def _extract_soft_skills_highlights(self, resume_text: str, transferable_skills: List[str]) -> List[str]:
+        canonical = [item.strip().title() for item in transferable_skills if item.strip()]
+        if canonical:
+            return list(dict.fromkeys(canonical))[:5]
+
+        soft_skill_tokens = [
+            "Communication",
+            "Leadership",
+            "Team Collaboration",
+            "Problem Solving",
+            "Time Management",
+            "Stakeholder Management",
+            "Ownership",
+            "Adaptability",
+            "Critical Thinking",
+        ]
+        lowered = resume_text.lower()
+        detected = [token for token in soft_skill_tokens if token.lower().split()[0] in lowered]
+        return detected[:5]
 
     def run(self, resume_text: str, target_role: str, current_skills: List[str], profession: str, level: str) -> AnalysisResult:
         resume_text = self._normalize_resume_text(resume_text)
@@ -1384,6 +1471,13 @@ class AnalyzePipeline:
         match_score = max(0.0, min(100.0, match_score))
 
         local_roadmap = self._build_roadmap(missing_skills, target_role, level)
+        ollama_roadmap = self.ollama_roadmap_service.generate_roadmap(
+            target_role=target_role,
+            level=level,
+            strengths=strengths,
+            skill_gaps=missing_skills,
+            max_steps=5,
+        )
         gemini_roadmap = self.gemini_roadmap_service.generate_roadmap(
             target_role=target_role,
             level=level,
@@ -1391,12 +1485,19 @@ class AnalyzePipeline:
             skill_gaps=missing_skills,
             max_steps=5,
         )
-        if gemini_roadmap is not None:
+
+        if ollama_roadmap is not None:
+            roadmap = ollama_roadmap
+            roadmap_source = "ollama"
+            roadmap_model = self.ollama_roadmap_service.model
+        elif gemini_roadmap is not None:
             roadmap = gemini_roadmap
             roadmap_source = "gemini"
+            roadmap_model = self.gemini_roadmap_service.model
         else:
             roadmap = local_roadmap
             roadmap_source = "local"
+            roadmap_model = None
 
         section_certs = self._extract_certifications_from_section(sections["certifications"])
         detected_certs = self._extract_resume_certifications(resume_text, role_key)
@@ -1420,8 +1521,35 @@ class AnalyzePipeline:
         featured_projects = self._extract_top_projects(sections["projects"], limit=3)
         featured_project = featured_projects[0] if featured_projects else None
         featured_experiences = self._extract_best_experiences(sections["experience"])
+        education_highlights = self._extract_education_highlights(resume_text)
+        soft_skills_highlights = self._extract_soft_skills_highlights(resume_text, transferable_display)
 
-        # Parsed structure is persisted in PostgreSQL JSONB for dashboard rendering.
+        overview_source = "local"
+        overview_model = None
+        ollama_overview = self.ollama_enhancement_service.generate_overview_highlights(
+            resume_text=resume_text,
+            target_role=target_role,
+            level=level,
+            experience_candidates=featured_experiences,
+            soft_skill_candidates=soft_skills_highlights,
+            education_candidates=education_highlights,
+        )
+        if ollama_overview:
+            ollama_experiences = [item for item in ollama_overview.get("experience_highlights", []) if isinstance(item, str)]
+            ollama_soft = [item for item in ollama_overview.get("soft_skills_highlights", []) if isinstance(item, str)]
+            ollama_education = [item for item in ollama_overview.get("education_highlights", []) if isinstance(item, str)]
+
+            if ollama_experiences:
+                featured_experiences = ollama_experiences[:5]
+            if ollama_soft:
+                soft_skills_highlights = ollama_soft[:5]
+            if ollama_education:
+                education_highlights = ollama_education[:5]
+
+            overview_source = "ollama"
+            overview_model = self.ollama_enhancement_service.model
+
+        # Parsed structure is persisted in MongoDB for dashboard rendering.
         parsed_resume = {
             "profession": profession,
             "targetRole": target_role,
@@ -1440,8 +1568,12 @@ class AnalyzePipeline:
             "featuredProject": featured_project,
             "featuredProjects": featured_projects,
             "featuredExperiences": featured_experiences,
+            "educationHighlights": education_highlights,
+            "softSkillsHighlights": soft_skills_highlights,
+            "overviewSource": overview_source,
+            "overviewModel": overview_model,
             "roadmapSource": roadmap_source,
-            "roadmapModel": self.gemini_roadmap_service.model if roadmap_source == "gemini" else None,
+            "roadmapModel": roadmap_model,
             "modelUsed": "resume_classifier.joblib" if self.classifier_bundle else "heuristic"
         }
 

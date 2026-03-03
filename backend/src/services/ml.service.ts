@@ -74,16 +74,76 @@ export type MlResponseV2 = MlResponse & {
   };
 };
 
-export async function analyzeResumeWithMl(payload: MlRequest) {
-  const { data } = await axios.post<MlResponse>(`${env.ML_SERVICE_URL}/analyze`, payload, {
-    timeout: 30000
-  });
+type MlRequestMeta = {
+  requestId?: string;
+  uploadFileName?: string;
+  route: "analyze" | "analyze/v2";
+};
+
+function buildTraceHeaders(meta: MlRequestMeta) {
+  const headers: Record<string, string> = {};
+  if (meta.requestId) {
+    headers["x-request-id"] = meta.requestId;
+  }
+  if (meta.uploadFileName) {
+    headers["x-upload-filename"] = meta.uploadFileName;
+  }
+  return headers;
+}
+
+function shouldRetryMlError(error: unknown) {
+  if (!axios.isAxiosError(error)) return false;
+
+  const status = error.response?.status;
+  if (!status) {
+    return true;
+  }
+
+  return status === 502 || status === 503 || status === 504;
+}
+
+async function postMlWithRetry<TResponse>(url: string, payload: MlRequest, timeoutMs: number, meta: MlRequestMeta) {
+  const headers = buildTraceHeaders(meta);
+
+  try {
+    const { data } = await axios.post<TResponse>(url, payload, {
+      timeout: timeoutMs,
+      headers
+    });
+    return data;
+  } catch (error) {
+    if (!shouldRetryMlError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      `[trace] requestId=${meta.requestId ?? "n/a"} route=${meta.route} uploadFile=${meta.uploadFileName ?? "n/a"} retry=1 reason=transient_ml_error`
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    const { data } = await axios.post<TResponse>(url, payload, {
+      timeout: timeoutMs,
+      headers
+    });
+    return data;
+  }
+}
+
+export async function analyzeResumeWithMl(payload: MlRequest, meta: MlRequestMeta) {
+  const started = Date.now();
+  const data = await postMlWithRetry<MlResponse>(`${env.ML_SERVICE_URL}/analyze`, payload, 90000, meta);
+  console.log(
+    `[trace] requestId=${meta.requestId ?? "n/a"} route=${meta.route} uploadFile=${meta.uploadFileName ?? "n/a"} mlElapsedMs=${Date.now() - started}`
+  );
   return data;
 }
 
-export async function analyzeResumeWithMlV2(payload: MlRequest) {
-  const { data } = await axios.post<MlResponseV2>(`${env.ML_SERVICE_URL}/analyze/v2`, payload, {
-    timeout: 45000
-  });
+export async function analyzeResumeWithMlV2(payload: MlRequest, meta: MlRequestMeta) {
+  const started = Date.now();
+  const data = await postMlWithRetry<MlResponseV2>(`${env.ML_SERVICE_URL}/analyze/v2`, payload, 240000, meta);
+  console.log(
+    `[trace] requestId=${meta.requestId ?? "n/a"} route=${meta.route} uploadFile=${meta.uploadFileName ?? "n/a"} mlElapsedMs=${Date.now() - started}`
+  );
   return data;
 }

@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
-import { Prisma } from "@prisma/client";
-import { prisma } from "./prisma";
+import { getDatabase } from "./mongodb";
 import { env } from "../utils/env";
 
 type UserRecord = {
@@ -37,6 +36,57 @@ function useMemoryDb() {
   return env.USE_IN_MEMORY_DB;
 }
 
+function redactSensitiveResumeData(text: string): string {
+  return text
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+    .replace(/(\+?\d[\d\s().-]{7,}\d)/g, "[REDACTED_PHONE]")
+    .replace(/https?:\/\/(www\.)?(linkedin\.com|github\.com)\/[^\s]+/gi, "[REDACTED_PROFILE_URL]");
+}
+
+function normalizeResumeTextForStorage(text: string): string {
+  if (!env.STORE_RAW_RESUME_TEXT) {
+    return "";
+  }
+
+  const redacted = redactSensitiveResumeData(text || "");
+  return redacted.slice(0, env.RESUME_TEXT_MAX_CHARS);
+}
+
+type UserDocument = UserRecord & {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type AnalysisDocument = AnalysisInput & {
+  id: string;
+  createdAt: Date;
+};
+
+function toUserRecord(user: UserDocument): UserRecord {
+  return {
+    id: user.id,
+    fullName: user.fullName ?? undefined,
+    email: user.email,
+    password: user.password ?? undefined,
+    profession: user.profession ?? undefined,
+    targetRole: user.targetRole ?? undefined,
+    level: user.level ?? undefined,
+    skills: user.skills ?? [],
+    goal: user.goal ?? undefined
+  };
+}
+
+async function usersCollection() {
+  const db = await getDatabase();
+  return db.collection<UserDocument>("users");
+}
+
+async function analysesCollection() {
+  const db = await getDatabase();
+  return db.collection<AnalysisDocument>("resume_analyses");
+}
+
 export async function upsertUserByEmail(email: string): Promise<UserRecord> {
   if (useMemoryDb()) {
     const existingId = inMemoryUsersByEmail.get(email);
@@ -52,23 +102,23 @@ export async function upsertUserByEmail(email: string): Promise<UserRecord> {
     return user;
   }
 
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: { email, skills: [] }
-  });
+  const users = await usersCollection();
+  const now = new Date();
+  await users.updateOne(
+    { email },
+    {
+      $set: { updatedAt: now },
+      $setOnInsert: { id: randomUUID(), email, skills: [], createdAt: now }
+    },
+    { upsert: true }
+  );
 
-  return {
-    id: user.id,
-    fullName: user.fullName ?? undefined,
-    email: user.email,
-    password: user.password ?? undefined,
-    profession: user.profession ?? undefined,
-    targetRole: user.targetRole ?? undefined,
-    level: user.level ?? undefined,
-    skills: user.skills,
-    goal: user.goal ?? undefined
-  };
+  const user = await users.findOne({ email });
+  if (!user) {
+    throw new Error("Failed to upsert user");
+  }
+
+  return toUserRecord(user);
 }
 
 export async function findUserById(userId: string): Promise<UserRecord | null> {
@@ -76,20 +126,11 @@ export async function findUserById(userId: string): Promise<UserRecord | null> {
     return inMemoryUsers.get(userId) ?? null;
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const users = await usersCollection();
+  const user = await users.findOne({ id: userId });
   if (!user) return null;
 
-  return {
-    id: user.id,
-    fullName: user.fullName ?? undefined,
-    email: user.email,
-    password: user.password ?? undefined,
-    profession: user.profession ?? undefined,
-    targetRole: user.targetRole ?? undefined,
-    level: user.level ?? undefined,
-    skills: user.skills,
-    goal: user.goal ?? undefined
-  };
+  return toUserRecord(user);
 }
 
 export async function findUserByEmail(email: string): Promise<UserRecord | null> {
@@ -99,20 +140,11 @@ export async function findUserByEmail(email: string): Promise<UserRecord | null>
     return inMemoryUsers.get(userId) ?? null;
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const users = await usersCollection();
+  const user = await users.findOne({ email });
   if (!user) return null;
 
-  return {
-    id: user.id,
-    fullName: user.fullName ?? undefined,
-    email: user.email,
-    password: user.password ?? undefined,
-    profession: user.profession ?? undefined,
-    targetRole: user.targetRole ?? undefined,
-    level: user.level ?? undefined,
-    skills: user.skills,
-    goal: user.goal ?? undefined
-  };
+  return toUserRecord(user);
 }
 
 export async function createOrUpdateUserProfile(input: {
@@ -160,40 +192,37 @@ export async function createOrUpdateUserProfile(input: {
     return created;
   }
 
-  const user = await prisma.user.upsert({
-    where: { email: input.email },
-    update: {
-      fullName: input.fullName,
-      password: input.password,
-      profession: input.profession,
-      targetRole: input.targetRole,
-      level: input.level,
-      skills: input.skills,
-      goal: input.goal
-    },
-    create: {
-      fullName: input.fullName,
-      email: input.email,
-      password: input.password,
-      profession: input.profession,
-      targetRole: input.targetRole,
-      level: input.level,
-      skills: input.skills,
-      goal: input.goal
-    }
-  });
+  const users = await usersCollection();
+  const now = new Date();
 
-  return {
-    id: user.id,
-    fullName: user.fullName ?? undefined,
-    email: user.email,
-    password: user.password ?? undefined,
-    profession: user.profession ?? undefined,
-    targetRole: user.targetRole ?? undefined,
-    level: user.level ?? undefined,
-    skills: user.skills,
-    goal: user.goal ?? undefined
-  };
+  await users.updateOne(
+    { email: input.email },
+    {
+      $set: {
+        fullName: input.fullName,
+        password: input.password,
+        profession: input.profession,
+        targetRole: input.targetRole,
+        level: input.level,
+        skills: input.skills,
+        goal: input.goal,
+        updatedAt: now
+      },
+      $setOnInsert: {
+        id: randomUUID(),
+        email: input.email,
+        createdAt: now
+      }
+    },
+    { upsert: true }
+  );
+
+  const user = await users.findOne({ email: input.email });
+  if (!user) {
+    throw new Error("Failed to upsert user profile");
+  }
+
+  return toUserRecord(user);
 }
 
 export async function upsertUserCredentials(input: {
@@ -227,31 +256,33 @@ export async function upsertUserCredentials(input: {
     return created;
   }
 
-  const user = await prisma.user.upsert({
-    where: { email: input.email },
-    update: {
-      fullName: input.fullName,
-      password: input.password
-    },
-    create: {
-      fullName: input.fullName,
-      email: input.email,
-      password: input.password,
-      skills: []
-    }
-  });
+  const users = await usersCollection();
+  const now = new Date();
 
-  return {
-    id: user.id,
-    fullName: user.fullName ?? undefined,
-    email: user.email,
-    password: user.password ?? undefined,
-    profession: user.profession ?? undefined,
-    targetRole: user.targetRole ?? undefined,
-    level: user.level ?? undefined,
-    skills: user.skills,
-    goal: user.goal ?? undefined
-  };
+  await users.updateOne(
+    { email: input.email },
+    {
+      $set: {
+        fullName: input.fullName,
+        password: input.password,
+        updatedAt: now
+      },
+      $setOnInsert: {
+        id: randomUUID(),
+        email: input.email,
+        skills: [],
+        createdAt: now
+      }
+    },
+    { upsert: true }
+  );
+
+  const user = await users.findOne({ email: input.email });
+  if (!user) {
+    throw new Error("Failed to upsert user credentials");
+  }
+
+  return toUserRecord(user);
 }
 
 export async function updateUserOnboarding(
@@ -273,40 +304,54 @@ export async function updateUserOnboarding(
     return;
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      profession: payload.profession,
-      targetRole: payload.targetRole,
-      level: payload.level,
-      skills: payload.skills,
-      goal: payload.goal
+  const users = await usersCollection();
+  await users.updateOne(
+    { id: userId },
+    {
+      $set: {
+        profession: payload.profession,
+        targetRole: payload.targetRole,
+        level: payload.level,
+        skills: payload.skills,
+        goal: payload.goal,
+        updatedAt: new Date()
+      }
     }
-  });
+  );
 }
 
 export async function createAnalysis(input: AnalysisInput) {
+  const safeResumeText = normalizeResumeTextForStorage(input.resumeText);
+
   if (useMemoryDb()) {
     const id = randomUUID();
-    const analysis = { id, ...input };
+    const analysis = { id, ...input, resumeText: safeResumeText };
     inMemoryAnalyses.set(id, analysis);
     return analysis;
   }
 
-  const analysis = await prisma.resumeAnalysis.create({
-    data: {
-      userId: input.userId,
-      fileName: input.fileName,
-      resumeText: input.resumeText,
-      parsedResume: input.parsedResume as Prisma.InputJsonValue,
-      matchScore: input.matchScore,
-      strengths: input.strengths,
-      skillGaps: input.skillGaps,
-      transferableSkills: input.transferableSkills,
-      roadmap: input.roadmap as Prisma.InputJsonValue,
-      certifications: input.certifications
-    }
+  const analyses = await analysesCollection();
+  const id = randomUUID();
+
+  await analyses.insertOne({
+    id,
+    userId: input.userId,
+    fileName: input.fileName,
+    resumeText: safeResumeText,
+    parsedResume: input.parsedResume,
+    matchScore: input.matchScore,
+    strengths: input.strengths,
+    skillGaps: input.skillGaps,
+    transferableSkills: input.transferableSkills,
+    roadmap: input.roadmap,
+    certifications: input.certifications,
+    createdAt: new Date()
   });
+
+  const analysis = await analyses.findOne({ id });
+  if (!analysis) {
+    throw new Error("Failed to create analysis");
+  }
 
   return {
     id: analysis.id,

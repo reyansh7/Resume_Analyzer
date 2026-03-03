@@ -9,7 +9,7 @@ Working now:
 
 Blocked/partial:
 - Docker is not available on your machine (`docker` command not found).
-- PostgreSQL is not reliably available with valid credentials in current local environment.
+- MongoDB is not reliably available with valid credentials in current local environment.
 - Model is currently rule-based + similarity baseline, not yet fully fine-tuned for high-accuracy production behavior.
 
 ---
@@ -18,7 +18,7 @@ Blocked/partial:
 
 ### Root `.env` (reference)
 - `NEXT_PUBLIC_BACKEND_URL` – Frontend API base URL.
-- `DATABASE_URL` – PostgreSQL connection string.
+- `MONGODB_URI` – MongoDB connection string.
 - `JWT_SECRET` – JWT signing secret.
 
 ### `frontend/.env.local`
@@ -27,11 +27,12 @@ Blocked/partial:
 ### `backend/.env`
 - `PORT` – Backend port (default `8080`).
 - `NODE_ENV` – `development|test|production`.
-- `DATABASE_URL` – PostgreSQL DSN (required for Prisma mode).
+- `MONGODB_URI` – MongoDB connection URI.
+- `MONGODB_DB_NAME` – database name.
 - `JWT_SECRET` – strong secret for auth.
 - `CORS_ORIGIN` – frontend origin (`http://localhost:3000`).
 - `ML_SERVICE_URL` – ML endpoint (`http://localhost:8000` for local).
-- `USE_IN_MEMORY_DB` – `true|false` (use `true` for local no-Postgres fallback).
+- `USE_IN_MEMORY_DB` – `true|false` (use `true` for local no-DB fallback).
 
 ### `ml-model/.env`
 - `PYTHONUNBUFFERED=1`
@@ -102,7 +103,7 @@ Note:
 
 1. Real auth (Google + LinkedIn OAuth + secure session strategy).
 2. Password hashing (if email/password stays).
-3. Persistent storage in real PostgreSQL (disable in-memory mode in prod).
+3. Persistent storage in real MongoDB (disable in-memory mode in prod).
 4. Async analysis jobs + queue (Redis + worker).
 5. File/object storage for raw resumes (S3/Cloudinary) instead of memory-only handling.
 6. Observability: Sentry + structured logs + request tracing.
@@ -143,7 +144,7 @@ Open:
 ## 7) Production Checklist Before Launch
 
 - [ ] Docker available and compose stack validated.
-- [ ] Managed PostgreSQL provisioned and migration applied.
+- [ ] Managed MongoDB provisioned and connectivity validated.
 - [ ] Production secrets configured in deployment platform.
 - [ ] OAuth credentials configured.
 - [ ] Model versioning + rollback strategy.

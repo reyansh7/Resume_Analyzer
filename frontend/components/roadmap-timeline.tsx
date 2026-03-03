@@ -32,9 +32,9 @@ const PLAN_LABELS: Record<PlanKey, string> = {
 };
 
 function difficultyClass(level: RoadmapTask["difficulty"]) {
-  if (level === "Beginner") return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-  if (level === "Intermediate") return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-  return "bg-rose-500/15 text-rose-300 border-rose-500/30";
+  if (level === "Beginner") return "bg-primary/15 text-primary border-primary/30";
+  if (level === "Intermediate") return "bg-primary/15 text-primary border-primary/30";
+  return "bg-primary/15 text-primary border-primary/30";
 }
 
 export function RoadmapTimeline({ roadmap }: { roadmap?: RoadmapAdvanced }) {
@@ -93,19 +93,19 @@ export function RoadmapTimeline({ roadmap }: { roadmap?: RoadmapAdvanced }) {
                         
                         {(task.suggested_courses && task.suggested_courses.length > 0) && (
                           <div>
-                            <p className="text-xs font-semibold text-amber-400 flex items-center gap-1">📖 Suggested Courses</p>
+                            <p className="text-xs font-semibold text-primary flex items-center gap-1">📖 Suggested Courses</p>
                             <ul className="mt-2 space-y-1 text-xs">
-                              {task.suggested_courses.map((course) => <li key={course} className="rounded px-2 py-1 bg-amber-500/10 text-amber-100">→ {course}</li>)}
+                              {task.suggested_courses.map((course) => <li key={course} className="rounded px-2 py-1 bg-primary/10 text-primary">→ {course}</li>)}
                             </ul>
                           </div>
                         )}
                         
                         {(task.youtube_links && task.youtube_links.length > 0) && (
                           <div>
-                            <p className="text-xs font-semibold text-red-400 flex items-center gap-1">▶️ YouTube Resources</p>
+                            <p className="text-xs font-semibold text-primary flex items-center gap-1">▶️ YouTube Resources</p>
                             <ul className="mt-2 space-y-1 text-xs">
                               {task.youtube_links.map((link) => (
-                                <li key={link}><a href={link} target="_blank" rel="noreferrer" className="text-red-300 underline-offset-2 hover:underline break-all">→ {link.substring(0, 60)}...</a></li>
+                                <li key={link}><a href={link} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline break-all">→ {link.substring(0, 60)}...</a></li>
                               ))}
                             </ul>
                           </div>
@@ -113,10 +113,10 @@ export function RoadmapTimeline({ roadmap }: { roadmap?: RoadmapAdvanced }) {
                         
                         {(task.leetcode_problems && task.leetcode_problems.length > 0) && (
                           <div>
-                            <p className="text-xs font-semibold text-orange-400 flex items-center gap-1">⚙️ LeetCode Problems</p>
+                            <p className="text-xs font-semibold text-primary flex items-center gap-1">⚙️ LeetCode Problems</p>
                             <ul className="mt-2 space-y-1 text-xs">
                               {task.leetcode_problems.map((link) => (
-                                <li key={link}><a href={link} target="_blank" rel="noreferrer" className="text-orange-300 underline-offset-2 hover:underline break-all">→ {link.substring(0, 60)}...</a></li>
+                                <li key={link}><a href={link} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline break-all">→ {link.substring(0, 60)}...</a></li>
                               ))}
                             </ul>
                           </div>

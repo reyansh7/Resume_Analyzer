@@ -2,12 +2,6 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../utils/env";
 
-declare module "express-serve-static-core" {
-  interface Request {
-    user?: { userId: string; email: string };
-  }
-}
-
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   const rawHeaderToken = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;

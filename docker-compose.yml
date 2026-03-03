@@ -1,18 +1,14 @@
 version: "3.9"
 
 services:
-  postgres:
-    image: postgres:16
+  mongodb:
+    image: mongo:7
     container_name: resume-analyzer-db
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: resume_analyzer
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mongo_data:/data/db
 
   ml-model:
     build:
@@ -36,12 +32,13 @@ services:
     container_name: resume-analyzer-backend
     restart: unless-stopped
     depends_on:
-      - postgres
+      - mongodb
       - ml-model
     environment:
       PORT: 8080
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/resume_analyzer
+      MONGODB_URI: mongodb://mongodb:27017
+      MONGODB_DB_NAME: resume_analyzer
       JWT_SECRET: super_secure_jwt_secret_key
       CORS_ORIGIN: http://localhost:3000
       ML_SERVICE_URL: http://ml-model:8000
@@ -62,4 +59,4 @@ services:
       - "3000:3000"
 
 volumes:
-  postgres_data:
+  mongo_data:

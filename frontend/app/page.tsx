@@ -167,6 +167,64 @@ export default function LandingPage() {
       );
     });
 
+    ScrollTrigger.create({
+      trigger: ".skill-gap-container",
+      start: "top 80%",
+      onEnter: () => {
+        gsap.to(".skill-gap-bar", {
+          width: (_i: number, el: Element) => `${el.getAttribute("data-width")}%`,
+          duration: 1.5,
+          ease: "power3.out",
+          stagger: 0.15
+        });
+        gsap.to(".skill-gap-number", {
+          textContent: (_i: number, el: Element) => el.getAttribute("data-target"),
+          duration: 1.5,
+          snap: { textContent: 1 },
+          ease: "power3.out",
+          stagger: 0.15
+        });
+      },
+      once: true
+    });
+
+    gsap.fromTo(
+      ".roadmap-item",
+      { opacity: 0, x: -30 },
+      {
+        opacity: 1, x: 0, duration: 0.8, stagger: 0.2, ease: "power3.out",
+        scrollTrigger: {
+          trigger: ".roadmap-container",
+          start: "top 80%",
+          once: true
+        }
+      }
+    );
+
+    gsap.to(".roadmap-line", {
+      height: "calc(100% - 32px)",
+      ease: "none",
+      scrollTrigger: {
+        trigger: ".roadmap-container",
+        start: "top 60%",
+        end: "bottom 60%",
+        scrub: true
+      }
+    });
+
+    gsap.utils.toArray<HTMLElement>(".roadmap-node").forEach((node) => {
+      gsap.to(node, {
+        borderColor: "#14b8a6",
+        color: "#14b8a6",
+        scrollTrigger: {
+          trigger: node,
+          start: "top 60%",
+          end: "top 60%",
+          scrub: true
+        }
+      });
+    });
+
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       float1.kill();
@@ -426,129 +484,227 @@ export default function LandingPage() {
         </section>
 
         {/* 4 New Sections with 3D Reveal */}
-        <section className="relative mx-auto max-w-5xl space-y-32 px-4 py-24">
+        <section className="relative mx-auto max-w-6xl space-y-40 px-4 py-32">
+          {/* Section 1: Three steps */}
+          <div className="step-3d-card flex flex-col items-center text-center w-full">
+            <span className="text-xs font-bold uppercase tracking-widest text-[#5EEAD4] mb-4">How it works</span>
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6">
+              Three steps to your <br />
+              <span className="font-serif italic font-normal tracking-normal text-[1.05em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-400 dark:from-teal-400 dark:to-teal-200 inline-block mt-1">dream offer.</span>
+            </h2>
+            <p className="max-w-2xl text-lg text-slate-600 dark:text-slate-400 mb-16">
+              Not another checklist tool. A true AI advisor that understands what the market wants—and builds you a path to get there.
+            </p>
 
-          {/* Section 1: What does my app do? */}
-          <div className="step-3d-card flex flex-col items-center gap-12 md:flex-row pointer-events-auto">
-            <div className="flex-1 space-y-6">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400">
-                <BrainCircuit className="h-8 w-8" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+              {/* Card 1 */}
+              <div className="relative group overflow-hidden rounded-2xl bg-slate-50 dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 p-8 text-left h-full transition-all hover:border-teal-500/50">
+                <div className="absolute top-4 right-4 text-7xl font-black text-slate-200 dark:text-slate-800/50 group-hover:text-teal-500/10 transition-colors">01</div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Upload</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Let's see how recruiters see you.</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                  Drop your resume and tell us where you're headed. Our NLP engine parses every detail—experience, impact, keywords—in under three seconds.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-medium text-teal-600 dark:text-teal-500">
+                  <span>⚡</span> 3s parse time
+                </div>
               </div>
-              <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Intelligent Career<br />Acceleration</h2>
-              <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-                Our application isn't just a parser—it's your AI career coach. By analyzing millions of data points across global job descriptions, we understand exactly what the market demands for your dream role.
-              </p>
-            </div>
-            <div className="flex-1">
-              <Card className="relative overflow-hidden border-slate-200 bg-white/50 dark:border-slate-800 dark:bg-slate-900/50 p-8 backdrop-blur-xl">
-                <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
-                <h3 className="mb-4 text-xl font-semibold text-slate-800 dark:text-slate-200">Our Core Capabilities</h3>
-                <ul className="space-y-4">
-                  {features.map((feature, idx) => (
-                    <li key={idx} className="flex items-center text-slate-600 dark:text-slate-400">
-                      <ArrowRight className="mr-3 h-4 w-4 text-teal-500 dark:text-teal-400" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
+
+              {/* Card 2 */}
+              <div className="relative group overflow-hidden rounded-2xl bg-slate-50 dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 p-8 text-left h-full transition-all hover:border-teal-500/50">
+                <div className="absolute top-4 right-4 text-7xl font-black text-slate-200 dark:text-slate-800/50 group-hover:text-teal-500/10 transition-colors">02</div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400">
+                    <Target className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Analyze</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Understand what's holding you back.</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                  AI scores your alignment with your target role. Identifies missing skills, quantifies your strengths, and compares you to top candidates in the field.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-medium text-teal-600 dark:text-teal-500">
+                  <span>⚡</span> 127 scoring signals
+                </div>
+              </div>
+
+              {/* Card 3 */}
+              <div className="relative group overflow-hidden rounded-2xl bg-slate-50 dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 p-8 text-left h-full transition-all hover:border-teal-500/50">
+                <div className="absolute top-4 right-4 text-7xl font-black text-slate-200 dark:text-slate-800/50 group-hover:text-teal-500/10 transition-colors">03</div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400">
+                    <BrainCircuit className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Accelerate</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">A week-by-week plan built just for you.</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                  Not generic tips. A specific, prioritized roadmap—courses, projects, and skills—calculated to close your gap as fast as possible.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-medium text-teal-600 dark:text-teal-500">
+                  <span>⚡</span> Avg. 4x faster placement
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Section 2: Signup and answer questions */}
-          <div className="step-3d-card flex flex-col items-center gap-12 md:flex-row-reverse pointer-events-auto">
+          {/* Section 2: Exact gap */}
+          <div className="step-3d-card flex flex-col gap-16 md:flex-row items-center justify-between w-full">
             <div className="flex-1 space-y-6">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400">
-                <UserPlus className="h-8 w-8" />
-              </div>
-              <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Start With Your<br />Ambitions</h2>
+              <span className="text-xs font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">Skill Intelligence</span>
+              <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.1]">
+                Understand your <br />
+                <span className="font-serif italic font-normal tracking-normal text-[1.05em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-400 dark:from-teal-400 dark:to-teal-200 inline-block mt-1">exact gap.</span>
+              </h2>
               <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-                Sign up in seconds and tell us where you're headed. Answer a few targeted questions about your current stack, your dream company, and your ideal role to set the foundation.
+                We don't just list missing skills. We quantify how far away you are from what top companies actually hire for—and rank what matters most.
               </p>
+              <div className="flex gap-6 pt-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/50 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700">
+                  <BrainCircuit className="w-4 h-4 text-teal-600 dark:text-teal-400" /> 127 signals analyzed
+                </div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/50 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700">
+                  <Target className="w-4 h-4 text-teal-600 dark:text-teal-400" /> Real-time job data
+                </div>
+              </div>
             </div>
-            <div className="flex-1">
-              <Card className="relative overflow-hidden border-slate-200 bg-white/50 dark:border-slate-800 dark:bg-slate-900/50 p-8 backdrop-blur-xl">
-                <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
+            <div className="flex-1 w-full perspective-1000 skill-gap-container">
+              <div className="bg-white dark:bg-[#0B1120] rounded-2xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-[0_0_50px_-12px_rgba(20,184,166,0.15)]" style={{ transform: "rotateY(-5deg) rotateX(2deg)" }}>
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">Skill Gap Analysis</h3>
+                  <span className="text-xs font-semibold px-3 py-1 bg-teal-100 dark:bg-teal-500/20 text-teal-700 dark:text-teal-400 rounded-full border border-teal-200 dark:border-teal-500/30">Target: L5 SWE</span>
+                </div>
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="h-2 w-1/3 rounded-full bg-slate-300 dark:bg-slate-800" />
-                    <div className="h-10 w-full rounded-lg border border-slate-200 bg-slate-100/50 dark:border-slate-800 dark:bg-slate-950/50" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-2 w-1/4 rounded-full bg-slate-300 dark:bg-slate-800" />
-                    <div className="h-10 w-full rounded-lg border border-slate-200 bg-slate-100/50 dark:border-slate-800 dark:bg-slate-950/50" />
-                  </div>
-                  <Button className="w-full bg-teal-100 text-teal-600 hover:bg-teal-200 dark:bg-teal-500/20 dark:text-teal-400 dark:hover:bg-teal-500/30">Continue to Upload</Button>
-                </div>
-              </Card>
-            </div>
-          </div>
-
-          {/* Section 3: Put your resume */}
-          <div className="step-3d-card flex flex-col items-center gap-12 md:flex-row pointer-events-auto">
-            <div className="flex-1 space-y-6">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400">
-                <FileText className="h-8 w-8" />
-              </div>
-              <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Drop Your Resume<br />In The Vault</h2>
-              <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-                Upload your current resume (PDF or DOCX). Our proprietary NLP engine will instantly extract your experience, quantify your impact, and map your existing skills against industry standards.
-              </p>
-            </div>
-            <div className="flex-1 pointer-events-auto">
-              <Card className="relative overflow-hidden border-slate-300 dark:border-slate-800 border-dashed bg-slate-100/50 dark:bg-slate-900/20 p-12 text-center backdrop-blur-xl">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="h-48 w-48 rounded-full bg-teal-500/5 blur-3xl" />
-                </div>
-                <div className="relative z-10 flex flex-col items-center space-y-4">
-                  <div className="rounded-full bg-slate-200 dark:bg-slate-800 p-4">
-                    <FileText className="h-8 w-8 text-slate-600 dark:text-slate-400" />
-                  </div>
-                  <p className="text-slate-700 dark:text-slate-300">Drag & drop your resume here</p>
-                  <p className="text-sm text-slate-500">Supports PDF, DOCX up to 10MB</p>
-                  <Button variant="secondary" className="mt-4 border-slate-300 bg-white hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-50">Browse Files</Button>
-                </div>
-              </Card>
-            </div>
-          </div>
-
-          {/* Section 4: Highlights & Roadmap */}
-          <div className="step-3d-card flex flex-col items-center gap-12 md:flex-row-reverse pointer-events-auto">
-            <div className="flex-1 space-y-6">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400">
-                <Target className="h-8 w-8" />
-              </div>
-              <h2 className="text-3xl font-bold tracking-tight md:text-5xl">Your Personalized<br />Master Plan</h2>
-              <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-                We'll highlight your strongest assets, flag critical missing skills, and generate a week-by-week upskilling roadmap. Know exactly what courses to take and what projects to build next.
-              </p>
-            </div>
-            <div className="flex-1">
-              <Card className="relative overflow-hidden border-slate-200 bg-white/50 dark:border-slate-800 dark:bg-slate-900/50 p-8 backdrop-blur-xl">
-                <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">Match Score</span>
-                    <span className="rounded-full bg-teal-100 px-3 py-1 text-sm text-teal-600 dark:bg-teal-500/20 dark:text-teal-400">Needs Work (62%)</span>
-                  </div>
-                  <div>
-                    <h4 className="mb-3 text-sm font-medium text-slate-600 dark:text-slate-400">Recommended Roadmap</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-4 rounded-lg bg-slate-50/50 dark:bg-slate-950/50 p-3 shadow-inner">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300">W1</div>
-                        <p className="text-sm text-slate-800 dark:text-slate-300">Master System Design Basics</p>
+                  {[
+                    { name: 'System Design', gap: -36, you: 42, market: 78 },
+                    { name: 'Kubernetes', gap: -47, you: 18, market: 65 },
+                    { name: 'TypeScript', gap: -5, you: 85, market: 90 },
+                    { name: 'ML Pipelines', gap: -42, you: 30, market: 72 },
+                    { name: 'API Design', gap: -12, you: 71, market: 83 }
+                  ].map((skill, i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-bold text-slate-700 dark:text-slate-200">{skill.name}</span>
+                        <span className="font-mono text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-500/20">{skill.gap}</span>
                       </div>
-                      <div className="flex items-center gap-4 rounded-lg bg-slate-50/50 dark:bg-slate-950/50 p-3 shadow-inner">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300">W2</div>
-                        <p className="text-sm text-slate-800 dark:text-slate-300">Learn Kubernetes Concepts</p>
+                      <div className="relative h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="absolute top-0 left-0 h-full bg-slate-200 dark:bg-slate-700 rounded-full" style={{ width: `${skill.market}%` }} />
+                        <div className="skill-gap-bar absolute top-0 left-0 h-full bg-gradient-to-r from-teal-500 to-emerald-400 dark:from-teal-600 dark:to-emerald-400 rounded-full shadow-[0_0_10px_rgba(20,184,166,0.4)] dark:shadow-[0_0_10px_rgba(20,184,166,0.8)]" data-width={skill.you} style={{ width: "0%" }} />
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-500 font-medium">
+                        <span>You: <span className="skill-gap-number" data-target={skill.you}>0</span>%</span>
+                        <span>Market avg: {skill.market}%</span>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              </Card>
+              </div>
             </div>
           </div>
 
+          {/* Section 3: Roadmap */}
+          <div className="step-3d-card flex flex-col gap-16 md:flex-row items-center justify-between w-full">
+            <div className="flex-1 space-y-6">
+              <span className="text-xs font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">Roadmap</span>
+              <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.1]">
+                Your week-by-week <br />
+                <span className="font-serif italic font-normal tracking-normal text-[1.05em] text-teal-600 dark:text-teal-400 inline-block mt-1">master plan.</span>
+              </h2>
+              <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
+                Not a vague "learn Python" suggestion. A precise, sequenced plan of courses, projects, and milestones—ranked by impact on your score.
+              </p>
+              <div className="pt-4">
+                <Button className="rounded-full px-8 py-6 text-base font-bold bg-gradient-to-r from-teal-600 to-emerald-500 dark:from-teal-600 dark:to-emerald-500 text-white border-0 shadow-[0_0_20px_rgba(20,184,166,0.3)] dark:shadow-[0_0_20px_rgba(20,184,166,0.4)] hover:shadow-[0_0_30px_rgba(20,184,166,0.5)] dark:hover:shadow-[0_0_30px_rgba(20,184,166,0.6)] hover:-translate-y-0.5 transition-all">
+                  Get My Roadmap <ArrowRight className="ml-2 w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 w-full pl-0 md:pl-12 roadmap-container">
+              <div className="relative space-y-6">
+                {/* Vertical Line Background */}
+                <div className="absolute left-[20px] top-4 bottom-4 w-px bg-slate-200 dark:bg-slate-800" />
+                {/* Animated Vertical Line Foreground */}
+                <div className="roadmap-line absolute left-[20px] top-4 w-px bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.8)] z-0" style={{ height: "0%" }} />
+
+                {[
+                  { week: 'W1', title: 'System Design Fundamentals', tag: 'CRITICAL' },
+                  { week: 'W2', title: 'Kubernetes & Container Orchestration', tag: 'HIGH' },
+                  { week: 'W3-4', title: 'ML Pipeline Architecture', tag: 'HIGH' },
+                  { week: 'W5-6', title: 'Advanced API Design Patterns', tag: 'MEDIUM' },
+                  { week: 'W7-8', title: 'Portfolio Project: Full-Stack ML App', tag: 'ACTION' }
+                ].map((item, i) => (
+                  <div key={i} className="roadmap-item relative flex items-center gap-6 group">
+                    <div className="roadmap-node flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-[#0F172A] border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 z-10 shadow-sm transition-colors">
+                      {item.week}
+                    </div>
+                    <div className="flex-1 bg-white dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex items-center justify-between transition-all hover:border-teal-500/50 dark:hover:border-teal-400/50 shadow-sm relative overflow-hidden group-hover:shadow-[0_4px_20px_-4px_rgba(20,184,166,0.1)]">
+                      <div className="absolute inset-0 bg-gradient-to-r from-teal-500/0 via-teal-500/0 to-teal-500/5 dark:to-teal-400/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm relative z-10">{item.title}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border text-teal-700 bg-teal-50 border-teal-200 dark:text-teal-400 dark:bg-teal-500/10 dark:border-teal-500/20 relative z-10">
+                        {item.tag}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: ATS Optimizer */}
+          <div className="step-3d-card flex flex-col gap-16 md:flex-row-reverse items-center justify-between w-full">
+            <div className="flex-1 space-y-6">
+              <span className="text-xs font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">ATS Optimizer</span>
+              <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.1]">
+                Beat the bots. <br />
+                <span className="font-serif italic font-normal tracking-normal text-[1.05em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-500 dark:from-teal-400 dark:to-emerald-400 inline-block mt-1">Impress the humans.</span>
+              </h2>
+              <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
+                Over 75% of resumes are filtered before a human ever sees them. We show you exactly which keywords you're missing and where to add them naturally.
+              </p>
+              <div className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300 pt-2">
+                <Target className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                Trained on 2M+ real job descriptions
+              </div>
+            </div>
+            <div className="flex-1 w-full perspective-1000">
+              <div className="bg-white dark:bg-[#0B1120] rounded-2xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-[0_0_50px_-12px_rgba(20,184,166,0.15)]" style={{ transform: "rotateY(5deg) rotateX(2deg)" }}>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">ATS Keyword Report</h3>
+                  <span className="text-xs font-bold px-3 py-1 bg-teal-100 dark:bg-teal-500/20 text-teal-700 dark:text-teal-400 rounded-full border border-teal-200 dark:border-teal-500/30">44% match</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2.5 mb-8">
+                  {[
+                    { word: 'distributed systems', has: false },
+                    { word: 'microservices', has: true },
+                    { word: 'kubernetes', has: false },
+                    { word: 'REST APIs', has: true },
+                    { word: 'CI/CD pipelines', has: true },
+                    { word: 'system design', has: false },
+                    { word: 'data modeling', has: false },
+                    { word: 'cloud architecture', has: true }
+                  ].map((kw, i) => (
+                    <div key={i} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${kw.has ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-500/20' : 'bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}>
+                      {kw.has ? <span className="text-[10px]">✓</span> : <span className="text-[10px]">✕</span>}
+                      {kw.word}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-slate-50 dark:bg-[#0F172A] rounded-xl p-5 border border-slate-200 dark:border-slate-800 border-dashed">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400 mb-3">AI Suggestion</h4>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    Add <span className="text-slate-900 dark:text-white font-semibold">"distributed systems"</span> to your second bullet under <span className="text-slate-900 dark:text-white font-semibold">Staff Engineer @ Acme</span> — this keyword appears in <span className="text-teal-600 dark:text-teal-400 font-bold">83% of target JDs.</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Footer padding */}

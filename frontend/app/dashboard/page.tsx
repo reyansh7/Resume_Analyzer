@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -8,7 +8,7 @@ import { isAxiosError } from "axios";
 import { Navbar } from "@/components/navbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { uploadResume, uploadResumeV2 } from "@/services/analysis-service";
+import { AnalysisResult, analyzeResumeWithFallback } from "@/services/analysis-service";
 import { MatchScoreRing } from "@/components/match-score-ring";
 import { UploadZone } from "@/components/upload-zone";
 import { DashboardCharts } from "@/components/dashboard-charts";
@@ -18,6 +18,7 @@ import { RoadmapTimeline } from "@/components/roadmap-timeline";
 import { ResumeRewritePanel } from "@/components/resume-rewrite-panel";
 import { AtsCompatibilityCard } from "@/components/ats-compatibility-card";
 import { FloatingParticles } from "@/components/floating-particles";
+import { ErrorState, getAnalysisErrorInfo } from "@/utils/analysis-errors";
 
 type Tab = "overview" | "gaps" | "roadmap" | "improve-resume" | "ats";
 
@@ -53,8 +54,12 @@ const demo = {
       "Led operations and event execution for a student technical club.",
       "Coordinated cross-functional teams for project delivery and outreach.",
     ],
-    roadmapSource: "gemini" as const,
-    roadmapModel: "gemini-2.0-flash",
+    educationHighlights: ["B.Tech in Computer Science", "HSC - Science", "SSC"],
+    softSkillsHighlights: ["Leadership", "Communication", "Team Collaboration"],
+    overviewSource: "ollama" as const,
+    overviewModel: "deepseek-r1:8b",
+    roadmapSource: "ollama" as const,
+    roadmapModel: "deepseek-r1:8b",
   },
   strengths: ["React", "TypeScript", "REST API Design"],
   gaps: ["Docker", "Kubernetes", "MLOps", "System Design"],
@@ -118,6 +123,53 @@ const tabs: Array<{ value: Tab; label: string }> = [
   { value: "ats", label: "ATS Analyzer" },
 ];
 
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
+const STORED_ANALYSIS_KEY = "resume-analyzer:last-analysis-v1";
+
+type PreflightState = {
+  blocking: string[];
+  hint?: string;
+};
+
+
+function runPreflightCheck(selectedFile: File): PreflightState {
+  const blocking: string[] = [];
+
+  if (selectedFile.type !== "application/pdf") {
+    blocking.push("Only PDF files are supported.");
+  }
+
+  if (selectedFile.size > MAX_PDF_SIZE_BYTES) {
+    blocking.push("File exceeds 10MB limit. Please upload a smaller PDF.");
+  }
+
+  const likelyScanned = /scan|scanner|photo|image|cam|ocr/i.test(selectedFile.name);
+  const hint = likelyScanned
+    ? "This file looks scanned/image-based. If analysis fails, export an OCR or text-based PDF."
+    : "For best results, upload a text-based PDF with selectable text.";
+
+  return { blocking, hint };
+}
+
+function buildResultView(data: AnalysisResult) {
+  return {
+    score: data.overall_score ?? data.matchScore,
+    confidence: data.confidence ?? demo.confidence,
+    breakdown: data.breakdown ?? demo.breakdown,
+    explanations: data.explanations ?? demo.explanations,
+    parsedResume: data.parsedResume,
+    strengths: data.strengths,
+    gaps: data.skillGaps,
+    transferable: data.transferableSkills,
+    roadmap: data.roadmap,
+    certs: data.certifications,
+    skillInsights: data.skill_insights ?? demo.skillInsights,
+    roadmapAdvanced: data.roadmap_advanced ?? demo.roadmapAdvanced,
+    rewrites: data.rewrite_suggestions ?? demo.rewrites,
+    ats: data.ats_analysis ?? demo.ats,
+  };
+}
+
 function parseRoadmapDescription(description: string) {
   const source = (description || "").trim();
   if (!source) {
@@ -139,8 +191,17 @@ function parseRoadmapDescription(description: string) {
     .replace(/\s{2,}/g, " ")
     .trim();
 
+  if (summary && /^[\W_]+$/.test(summary)) {
+    summary = "";
+  }
+
   if (!summary) {
-    summary = source.split(".")[0]?.trim() ?? source;
+    const fallbackParts = [deliverable, success].filter((item): item is string => Boolean(item && item.trim()));
+    summary = fallbackParts.length > 0 ? fallbackParts.join(". ") : source.split(".")[0]?.trim() ?? source;
+  }
+
+  if (summary && /^[\W_]+$/.test(summary)) {
+    summary = "Practical learning step with clear deliverable and success criteria.";
   }
 
   return { summary, timeline, deliverable, success };
@@ -151,71 +212,79 @@ export default function DashboardPage() {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<ErrorState | null>(null);
+  const [preflight, setPreflight] = useState<PreflightState | null>(null);
+  const [storedResult, setStoredResult] = useState<AnalysisResult | null>(null);
+  const stepTimersRef = useRef<number[]>([]);
+
+  const clearStepTimers = () => {
+    for (const timer of stepTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    stepTimersRef.current = [];
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(STORED_ANALYSIS_KEY);
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as AnalysisResult;
+      if (parsed && typeof parsed === "object" && typeof parsed.matchScore === "number") {
+        setStoredResult(parsed);
+      }
+    } catch {
+      window.localStorage.removeItem(STORED_ANALYSIS_KEY);
+    }
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async (uploadFile: File) => {
       const formData = new FormData();
       formData.append("resume", uploadFile);
-      try {
-        return await uploadResumeV2(formData);
-      } catch (error) {
-        if (isAxiosError(error)) {
-          const status = error.response?.status;
-          if (status === 401 || status === 403) {
-            throw error;
-          }
-
-          if (!status) {
-            throw error;
-          }
-
-          if (status !== 404 && status !== 405) {
-            throw error;
-          }
-        }
-
-        return uploadResume(formData);
-      }
+      return analyzeResumeWithFallback(formData);
+    },
+    onMutate: () => {
+      setErrorState(null);
+      clearStepTimers();
+    },
+    onSuccess: () => {
+      clearStepTimers();
     },
     onError: (error) => {
+      clearStepTimers();
+
       if (isAxiosError(error)) {
         const status = error.response?.status;
         if (status === 401 || status === 403) {
           localStorage.removeItem("resume-analyzer-token");
-          setAuthError("Your session expired. Please login again.");
+          setErrorState({ friendly: "Your session expired. Please login again." });
           router.push("/login");
-          return;
-        }
-
-        if (error.code === "ERR_NETWORK") {
-          setAuthError("Backend service is unreachable. Please start backend on port 8080 and ML on 8000.");
           return;
         }
       }
 
-      setAuthError("Analysis failed. Please try again.");
+      setErrorState(getAnalysisErrorInfo(error));
     },
   });
 
+  useEffect(() => {
+    if (!mutation.data || typeof window === "undefined") return;
+    window.localStorage.setItem(STORED_ANALYSIS_KEY, JSON.stringify(mutation.data));
+    setStoredResult(mutation.data);
+  }, [mutation.data]);
+
+  useEffect(() => {
+    return () => {
+      clearStepTimers();
+    };
+  }, []);
+
   const result = useMemo(() => {
-    if (mutation.data) {
-      return {
-        score: mutation.data.overall_score ?? mutation.data.matchScore,
-        confidence: mutation.data.confidence ?? demo.confidence,
-        breakdown: mutation.data.breakdown ?? demo.breakdown,
-        explanations: mutation.data.explanations ?? demo.explanations,
-        parsedResume: mutation.data.parsedResume,
-        strengths: mutation.data.strengths,
-        gaps: mutation.data.skillGaps,
-        transferable: mutation.data.transferableSkills,
-        roadmap: mutation.data.roadmap,
-        certs: mutation.data.certifications,
-        skillInsights: mutation.data.skill_insights ?? demo.skillInsights,
-        roadmapAdvanced: mutation.data.roadmap_advanced ?? demo.roadmapAdvanced,
-        rewrites: mutation.data.rewrite_suggestions ?? demo.rewrites,
-        ats: mutation.data.ats_analysis ?? demo.ats,
-      };
+    const activeData = mutation.data ?? storedResult;
+    if (activeData) {
+      return buildResultView(activeData);
     }
     return {
       score: demo.score,
@@ -233,7 +302,7 @@ export default function DashboardPage() {
       rewrites: demo.rewrites,
       ats: demo.ats,
     };
-  }, [mutation.data]);
+  }, [mutation.data, storedResult]);
 
   const visibleCertificationsAndAwards = useMemo(() => {
     const fromCerts = Array.isArray(result.certs) ? result.certs : [];
@@ -247,6 +316,16 @@ export default function DashboardPage() {
     return list.filter((item: string) => typeof item === "string" && item.trim().length > 0).slice(0, 5);
   }, [result.parsedResume?.featuredExperiences]);
 
+  const visibleEducationHighlights = useMemo(() => {
+    const list = Array.isArray(result.parsedResume?.educationHighlights) ? result.parsedResume.educationHighlights : [];
+    return list.filter((item: string) => typeof item === "string" && item.trim().length > 0).slice(0, 5);
+  }, [result.parsedResume?.educationHighlights]);
+
+  const visibleSoftSkillsHighlights = useMemo(() => {
+    const list = Array.isArray(result.parsedResume?.softSkillsHighlights) ? result.parsedResume.softSkillsHighlights : [];
+    return list.filter((item: string) => typeof item === "string" && item.trim().length > 0).slice(0, 6);
+  }, [result.parsedResume?.softSkillsHighlights]);
+
   return (
     <main>
       <FloatingParticles />
@@ -258,21 +337,67 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-semibold">Skill Gap Intelligence Dashboard</h1>
               <p className="mt-2 text-muted-foreground">Upload your resume for advanced multi-dimensional scoring, ATS checks, roadmap planning, and rewrite suggestions.</p>
               <div className="mt-6">
-                <UploadZone dragging={dragging} selectedFile={file} onSelectFile={setFile} onClearFile={() => setFile(null)} setDragging={setDragging} />
+                <UploadZone
+                  dragging={dragging}
+                  selectedFile={file}
+                  onSelectFile={(selectedFile) => {
+                    setFile(selectedFile);
+                    setErrorState(null);
+                    setPreflight(runPreflightCheck(selectedFile));
+                  }}
+                  onClearFile={() => {
+                    setFile(null);
+                    setPreflight(null);
+                    setErrorState(null);
+                  }}
+                  setDragging={setDragging}
+                />
               </div>
+              {preflight?.hint && <p className="mt-2 text-xs text-muted-foreground">{preflight.hint}</p>}
+              {preflight && preflight.blocking.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-red-500">
+                  {preflight.blocking.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              )}
+
               <div className="mt-4 flex items-center gap-3">
                 <Button
                   disabled={!file || mutation.isPending}
                   onClick={() => {
-                    setAuthError(null);
-                    if (file) mutation.mutate(file);
+                    setErrorState(null);
+                    if (!file) return;
+
+                    const preflightResult = runPreflightCheck(file);
+                    setPreflight(preflightResult);
+                    if (preflightResult.blocking.length > 0) {
+                      setErrorState({
+                        friendly: "Please fix file issues before analysis.",
+                        technical: preflightResult.blocking.join("\n")
+                      });
+                      return;
+                    }
+
+                    mutation.mutate(file);
                   }}
                 >
                   {mutation.isPending ? "Analyzing..." : "Analyze Resume"}
                 </Button>
                 {file && <span className="text-sm text-muted-foreground">{file.name}</span>}
               </div>
-              {authError && <p className="mt-2 text-sm text-red-500">{authError}</p>}
+              {errorState && (
+                <div className="mt-2 rounded-lg border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-400">
+                  <p>{errorState.friendly}</p>
+                  {(errorState.technical || errorState.requestId) && (
+                    <details className="mt-2 text-xs text-red-300">
+                      <summary className="cursor-pointer">Technical details</summary>
+                      {errorState.requestId && <p className="mt-1">Request ID: {errorState.requestId}</p>}
+                      {errorState.technical && <pre className="mt-1 whitespace-pre-wrap">{errorState.technical}</pre>}
+                    </details>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-center">
               <MatchScoreRing score={result.score} />
@@ -338,11 +463,15 @@ export default function DashboardPage() {
                     </ul>
                   </Card>
                   <Card className="border-border/70 bg-secondary/20">
-                    <p className="text-sm font-semibold">📋 Explanation Highlights</p>
-                    <ul className="mt-3 space-y-2 text-xs">
-                      <li className="rounded-lg bg-background/60 px-3 py-2 dark:bg-secondary/40"><span className="font-medium">Tech:</span> {result.explanations.technical_skills}</li>
-                      <li className="rounded-lg bg-background/60 px-3 py-2 dark:bg-secondary/40"><span className="font-medium">Exp:</span> {result.explanations.experience_match}</li>
-                      <li className="rounded-lg bg-background/60 px-3 py-2 dark:bg-secondary/40"><span className="font-medium">Soft:</span> {result.explanations.soft_skills}</li>
+                    <p className="text-sm font-semibold">🧠 Soft Skills Highlights</p>
+                    <ul className="mt-3 space-y-2 text-sm">
+                      {visibleSoftSkillsHighlights.length > 0 ? (
+                        visibleSoftSkillsHighlights.map((item) => (
+                          <li key={item} className="rounded-lg bg-background/60 px-3 py-2 font-medium dark:bg-secondary/40">{item}</li>
+                        ))
+                      ) : (
+                        <li className="rounded-lg bg-background/60 px-3 py-2 text-muted-foreground dark:bg-secondary/40">None extracted</li>
+                      )}
                     </ul>
                   </Card>
                 </div>
@@ -360,17 +489,16 @@ export default function DashboardPage() {
                     </ul>
                   </Card>
                   <Card className="border-border/70 bg-secondary/20">
-                    <p className="text-sm font-semibold">📊 Score Insights</p>
-                    <div className="mt-3 space-y-3 text-xs">
-                      <div className="rounded-lg bg-background/60 px-3 py-2 dark:bg-secondary/40">
-                        <p className="font-medium">Technical Skills</p>
-                        <p className="font-semibold text-primary">{Math.round(result.breakdown.technical_skills || 0)}%</p>
-                      </div>
-                      <div className="rounded-lg bg-background/60 px-3 py-2 dark:bg-secondary/40">
-                        <p className="font-medium">Experience Match</p>
-                        <p className="font-semibold text-primary">{Math.round(result.breakdown.experience_match || 0)}%</p>
-                      </div>
-                    </div>
+                    <p className="text-sm font-semibold">🎓 Education Highlights</p>
+                    <ul className="mt-3 space-y-2 text-sm">
+                      {visibleEducationHighlights.length > 0 ? (
+                        visibleEducationHighlights.map((item) => (
+                          <li key={item} className="rounded-lg bg-background/60 px-3 py-2 font-medium leading-relaxed dark:bg-secondary/40">{item}</li>
+                        ))
+                      ) : (
+                        <li className="rounded-lg bg-background/60 px-3 py-2 text-muted-foreground dark:bg-secondary/40">None extracted</li>
+                      )}
+                    </ul>
                   </Card>
                 </div>
               </div>
@@ -379,7 +507,12 @@ export default function DashboardPage() {
             {!mutation.isPending && tab === "gaps" && (
               <div className="space-y-6">
                 <SkillGapAccordion items={result.skillInsights} />
-                <DashboardCharts strengths={result.strengths} gaps={result.gaps} extractedSkills={result.parsedResume?.skillsExtracted || []} />
+                <DashboardCharts
+                  strengths={result.strengths}
+                  gaps={result.gaps}
+                  extractedSkills={result.parsedResume?.skillsExtracted || []}
+                  confidence={result.confidence}
+                />
               </div>
             )}
 
@@ -389,9 +522,11 @@ export default function DashboardPage() {
                   <div className="mb-4 flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2 text-sm">
                     <span className="font-semibold text-foreground">Roadmap Engine</span>
                     <span className="font-medium">
-                      {result.parsedResume?.roadmapSource === "gemini"
-                        ? `Gemini${result.parsedResume?.roadmapModel ? ` (${result.parsedResume.roadmapModel})` : ""}`
-                        : "Local Fallback"}
+                      {result.parsedResume?.roadmapSource === "ollama"
+                        ? `Ollama${result.parsedResume?.roadmapModel ? ` (${result.parsedResume.roadmapModel})` : ""}`
+                        : result.parsedResume?.roadmapSource === "gemini"
+                          ? `Gemini${result.parsedResume?.roadmapModel ? ` (${result.parsedResume.roadmapModel})` : ""}`
+                          : "Local Fallback"}
                     </span>
                   </div>
 

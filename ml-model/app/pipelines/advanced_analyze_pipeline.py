@@ -17,6 +17,7 @@ from app.modules import (
 from app.pipelines.analyze_pipeline import AnalyzePipeline
 from app.services.embedding_service import EmbeddingService
 from app.services.gemini_enhancement_service import GeminiEnhancementService
+from app.services.ollama_enhancement_service import OllamaEnhancementService
 from app.utils.skill_dictionary import ROLE_SKILL_MAP
 
 
@@ -51,6 +52,7 @@ class AdvancedAnalyzePipeline:
         self.rewrite_engine = ResumeRewriteEngine()
         self.ats_checker = AtsChecker()
         self.embedding_service = EmbeddingService()
+        self.ollama_enhancer = OllamaEnhancementService()
         self.gemini_enhancer = GeminiEnhancementService()
 
     def _normalize_role(self, target_role: str) -> str:
@@ -147,15 +149,28 @@ class AdvancedAnalyzePipeline:
             level=level,
         )
 
-        gemini_ranked = self.gemini_enhancer.prioritize_gaps(
+        gap_source = "local"
+        ollama_ranked = self.ollama_enhancer.prioritize_gaps(
             target_role=target_role,
             level=level,
             candidate_gaps=prioritized_gaps,
             strengths=base_result.strengths,
             limit=8,
         )
-        if gemini_ranked:
-            prioritized_gaps = gemini_ranked
+        if ollama_ranked:
+            prioritized_gaps = ollama_ranked
+            gap_source = "ollama"
+        else:
+            gemini_ranked = self.gemini_enhancer.prioritize_gaps(
+                target_role=target_role,
+                level=level,
+                candidate_gaps=prioritized_gaps,
+                strengths=base_result.strengths,
+                limit=8,
+            )
+            if gemini_ranked:
+                prioritized_gaps = gemini_ranked
+                gap_source = "gemini"
 
         advanced_roadmap = self.roadmap_generator.generate(
             missing_skills=prioritized_gaps,
@@ -193,6 +208,7 @@ class AdvancedAnalyzePipeline:
             "skillInsightsCount": len(merged_insights),
             "rewriteSuggestionsCount": len(rewrites),
             "atsStatus": ats.get("status"),
+            "skillGapSource": gap_source,
             "rewriteSource": rewrite_source,
             "atsSource": ats_source,
         }

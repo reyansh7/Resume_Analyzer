@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Dict, List
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -9,7 +10,23 @@ from app.config.scoring_config import DEFAULT_WEIGHTS
 from app.services.embedding_service import EmbeddingService
 
 
-EDUCATION_KEYWORDS = ["b.tech", "bachelor", "master", "m.tech", "phd", "university", "degree"]
+EDUCATION_KEYWORDS = [
+    "education",
+    "b.tech",
+    "b.e",
+    "bachelor",
+    "master",
+    "m.tech",
+    "phd",
+    "university",
+    "college",
+    "school",
+    "degree",
+    "cgpa",
+    "gpa",
+    "hsc",
+    "ssc",
+]
 EXPERIENCE_KEYWORDS = ["years", "experience", "engineer", "intern", "worked", "delivered", "built"]
 
 
@@ -66,10 +83,78 @@ class WeightedScorer:
     def _soft_skill_score(self, soft_skills: List[str]) -> float:
         return round(max(0.0, min(100.0, (len(soft_skills) / 6) * 100)), 2)
 
+    def _normalize_gpa_to_percent(self, value: float, scale: float | None) -> float:
+        if value <= 0:
+            return 0.0
+
+        if scale is not None and scale > 0:
+            return max(0.0, min(100.0, (value / scale) * 100.0))
+
+        if value <= 4.5:
+            return max(0.0, min(100.0, (value / 4.0) * 100.0))
+        if value <= 10.5:
+            return max(0.0, min(100.0, (value / 10.0) * 100.0))
+        return max(0.0, min(100.0, value))
+
+    def _extract_gpa_percent(self, lowered: str) -> float | None:
+        explicit_patterns = [
+            r"(?:cgpa|gpa)\s*[:\-]?\s*(\d+(?:\.\d+)?)\s*(?:/|out\s*of\s*)?\s*(10|4|100)?",
+            r"(\d+(?:\.\d+)?)\s*(?:/|out\s*of\s*)\s*(10|4|100)\s*(?:cgpa|gpa)?",
+            r"(\d+(?:\.\d+)?)\s*(?:cgpa|gpa)\b",
+        ]
+
+        for pattern in explicit_patterns:
+            match = re.search(pattern, lowered)
+            if not match:
+                continue
+
+            try:
+                raw_value = float(match.group(1))
+            except Exception:
+                continue
+
+            raw_scale = None
+            if match.lastindex and match.lastindex >= 2:
+                scale_text = match.group(2)
+                if scale_text:
+                    try:
+                        raw_scale = float(scale_text)
+                    except Exception:
+                        raw_scale = None
+
+            return self._normalize_gpa_to_percent(raw_value, raw_scale)
+
+        return None
+
     def _education_score(self, resume_text: str) -> float:
         lowered = resume_text.lower()
-        hits = sum(1 for token in EDUCATION_KEYWORDS if token in lowered)
-        return round(max(0.0, min(100.0, (hits / len(EDUCATION_KEYWORDS)) * 100)), 2)
+
+        keyword_hits = sum(1 for token in EDUCATION_KEYWORDS if token in lowered)
+        keyword_score = min(100.0, (keyword_hits / max(len(EDUCATION_KEYWORDS), 1)) * 100.0)
+
+        has_year_range = bool(re.search(r"\b(19|20)\d{2}\s*[-–]\s*(19|20)?\d{2}\b", lowered))
+        has_degree_token = bool(re.search(r"\b(bachelor|master|b\.?tech|m\.?tech|degree|diploma|hsc|ssc)\b", lowered))
+        has_institute_token = bool(re.search(r"\b(university|college|school|institute)\b", lowered))
+
+        structure_bonus = 0.0
+        if has_degree_token:
+            structure_bonus += 15.0
+        if has_institute_token:
+            structure_bonus += 12.0
+        if has_year_range:
+            structure_bonus += 8.0
+
+        gpa_percent = self._extract_gpa_percent(lowered)
+
+        structure_score = max(0.0, min(100.0, keyword_score * 0.7 + structure_bonus))
+        if gpa_percent is None:
+            return round(structure_score, 2)
+
+        combined = (0.45 * structure_score) + (0.55 * gpa_percent)
+        if structure_score < 20:
+            combined = max(combined, 0.75 * gpa_percent)
+
+        return round(max(0.0, min(100.0, combined)), 2)
 
     def score(self, resume_text: str, role_skills: List[str], extracted_skills: List[str], soft_skills: List[str]) -> ScoreBreakdown:
         technical, similarity_distribution = self._technical_score(resume_text, role_skills, extracted_skills)
@@ -100,7 +185,7 @@ class WeightedScorer:
                 "Experience score uses action verbs, measurable achievements and professional context cues."
             ),
             "education_match": (
-                "Education score checks degree/academic markers and formal qualification evidence in the resume text."
+                "Education score checks degree/academic markers and also factors GPA/CGPA performance when present."
             ),
         }
 

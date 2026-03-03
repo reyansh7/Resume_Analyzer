@@ -7,30 +7,76 @@ type DashboardChartsProps = {
   strengths: string[];
   gaps: string[];
   extractedSkills?: string[];
+  confidence?: number;
 };
 
+function normalizeSkill(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9+/#.\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenizeSkill(value: string) {
+  return normalizeSkill(value)
+    .split(/[\s/-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+}
+
+function titleCaseSkill(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => (part.length <= 3 ? part.toUpperCase() : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`))
+    .join(" ");
+}
+
+function collectDynamicAxes(strengths: string[], extractedSkills: string[], gaps: string[], limit = 5) {
+  const orderedCandidates = [...strengths, ...extractedSkills, ...gaps]
+    .map((item) => normalizeSkill(item))
+    .filter((item) => item.length >= 2);
+
+  const uniqueCandidates = Array.from(new Set(orderedCandidates));
+  const selected = uniqueCandidates.slice(0, limit);
+
+  if (selected.length >= 3) {
+    return selected;
+  }
+
+  const fallbackPool = ["core skills", "domain knowledge", "execution", "communication", "tools"];
+  for (const fallback of fallbackPool) {
+    if (selected.length >= limit) break;
+    if (!selected.includes(fallback)) {
+      selected.push(fallback);
+    }
+  }
+
+  return selected;
+}
+
 function toRadarBuckets(strengths: string[], extractedSkills: string[], gaps: string[]) {
-  const sourceSkills = (extractedSkills.length > 0 ? extractedSkills : strengths).map((item) => item.toLowerCase());
-  const sourceGaps = gaps.map((item) => item.toLowerCase());
+  const evidenceSource = [...strengths, ...extractedSkills].map((item) => normalizeSkill(item));
+  const gapSource = gaps.map((item) => normalizeSkill(item));
+  const axes = collectDynamicAxes(strengths, extractedSkills, gaps);
 
-  const domains: Array<{ skill: string; keywords: string[] }> = [
-    { skill: "Frontend", keywords: ["react", "next", "typescript", "javascript", "html", "css", "tailwind", "redux", "vue", "angular"] },
-    { skill: "Backend", keywords: ["node", "express", "api", "rest", "graphql", "django", "flask", "spring", "java", "microservice", "postgres", "mysql", "mongodb"] },
-    { skill: "System", keywords: ["system design", "architecture", "distributed", "scalability", "design pattern", "high availability"] },
-    { skill: "Cloud", keywords: ["aws", "azure", "gcp", "docker", "kubernetes", "terraform", "devops", "ci/cd", "monitoring"] },
-    { skill: "Data", keywords: ["sql", "pandas", "numpy", "tableau", "power bi", "excel", "statistics", "data analysis", "machine learning", "ml"] }
-  ];
+  const overlapRatio = (axisTokens: string[], sourceValue: string) => {
+    if (!axisTokens.length || !sourceValue) return 0;
+    const sourceTokens = new Set(tokenizeSkill(sourceValue));
+    if (sourceTokens.size === 0) return 0;
+    const overlap = axisTokens.filter((token) => sourceTokens.has(token)).length;
+    return overlap / axisTokens.length;
+  };
 
-  const hasKeyword = (text: string, keyword: string) => text.includes(keyword);
-
-  return domains.map((domain) => {
-    const evidenceHits = domain.keywords.filter((keyword) => sourceSkills.some((skill) => hasKeyword(skill, keyword))).length;
-    const gapHits = domain.keywords.filter((keyword) => sourceGaps.some((gap) => hasKeyword(gap, keyword))).length;
-    const base = evidenceHits > 0 ? 18 : 6;
-    const weighted = base + evidenceHits * 16 - gapHits * 10;
+  return axes.map((axis) => {
+    const axisTokens = tokenizeSkill(axis);
+    const evidenceScore = evidenceSource.reduce((max, value) => Math.max(max, overlapRatio(axisTokens, value)), 0);
+    const gapScore = gapSource.reduce((max, value) => Math.max(max, overlapRatio(axisTokens, value)), 0);
+    const weighted = 30 + evidenceScore * 55 - gapScore * 35;
 
     return {
-      skill: domain.skill,
+      skill: titleCaseSkill(axis),
       score: Math.max(5, Math.min(95, Math.round(weighted)))
     };
   });
@@ -96,20 +142,27 @@ function toGapBars(gaps: string[], extractedSkills: string[]) {
   }));
 }
 
-export function DashboardCharts({ strengths, gaps, extractedSkills = [] }: DashboardChartsProps) {
+export function DashboardCharts({ strengths, gaps, extractedSkills = [], confidence }: DashboardChartsProps) {
   const radarData = useMemo(() => toRadarBuckets(strengths, extractedSkills, gaps), [strengths, extractedSkills, gaps]);
   const gapData = useMemo(() => toGapBars(gaps, extractedSkills), [gaps, extractedSkills]);
   const hasGapData = gapData.some((item) => item.gap > 0);
+  const evidenceCount = useMemo(() => new Set([...strengths, ...extractedSkills].map((item) => normalizeSkill(item)).filter(Boolean)).size, [strengths, extractedSkills]);
+  const isLowConfidence = (typeof confidence === "number" && confidence < 0.45) || evidenceCount < 2;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="glass-card h-80 p-4">
         <p className="mb-2 text-sm font-medium">Skill Alignment Radar</p>
+        {isLowConfidence && (
+          <p className="mb-2 text-xs text-muted-foreground">
+            Limited evidence detected for this resume. Radar is approximate; add more readable skill/project text for higher confidence.
+          </p>
+        )}
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={radarData}>
             <PolarGrid />
             <PolarAngleAxis dataKey="skill" />
-            <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.35} />
+            <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={isLowConfidence ? 0.2 : 0.35} />
           </RadarChart>
         </ResponsiveContainer>
       </div>
@@ -122,7 +175,7 @@ export function DashboardCharts({ strengths, gaps, extractedSkills = [] }: Dashb
             <XAxis dataKey="skill" />
             <YAxis domain={[0, 100]} />
             <Tooltip />
-            <Bar dataKey="gap" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="gap" fill="hsl(var(--primary))" fillOpacity={isLowConfidence ? 0.65 : 1} radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
         {!hasGapData && <p className="mt-1 text-xs text-muted-foreground">No high-priority skill gaps detected for this profile.</p>}

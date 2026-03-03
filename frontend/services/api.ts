@@ -17,7 +17,7 @@ function resolveBackendBaseUrl() {
 
 export const api = axios.create({
   baseURL: resolveBackendBaseUrl(),
-  timeout: 20000,
+  timeout: 120000,
   withCredentials: true
 });
 
