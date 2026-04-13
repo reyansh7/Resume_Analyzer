@@ -16,8 +16,6 @@ from app.modules import (
 )
 from app.pipelines.analyze_pipeline import AnalyzePipeline
 from app.services.embedding_service import EmbeddingService
-from app.services.gemini_enhancement_service import GeminiEnhancementService
-from app.services.ollama_enhancement_service import OllamaEnhancementService
 from app.utils.skill_dictionary import ROLE_SKILL_MAP
 
 
@@ -41,6 +39,8 @@ class AdvancedAnalysisResult:
     roadmap_advanced: dict
     rewrites: List[dict]
     ats: dict
+    predicted_category: str | None = None
+    predicted_confidence: float | None = None
 
 
 class AdvancedAnalyzePipeline:
@@ -52,8 +52,6 @@ class AdvancedAnalyzePipeline:
         self.rewrite_engine = ResumeRewriteEngine()
         self.ats_checker = AtsChecker()
         self.embedding_service = EmbeddingService()
-        self.ollama_enhancer = OllamaEnhancementService()
-        self.gemini_enhancer = GeminiEnhancementService()
 
     def _normalize_role(self, target_role: str) -> str:
         normalized = re.sub(r"[^a-z0-9 ]+", " ", target_role.lower())
@@ -150,27 +148,6 @@ class AdvancedAnalyzePipeline:
         )
 
         gap_source = "local"
-        gemini_ranked = self.gemini_enhancer.prioritize_gaps(
-            target_role=target_role,
-            level=level,
-            candidate_gaps=prioritized_gaps,
-            strengths=base_result.strengths,
-            limit=8,
-        )
-        if gemini_ranked:
-            prioritized_gaps = gemini_ranked
-            gap_source = "gemini"
-        else:
-            ollama_ranked = self.ollama_enhancer.prioritize_gaps(
-                target_role=target_role,
-                level=level,
-                candidate_gaps=prioritized_gaps,
-                strengths=base_result.strengths,
-                limit=8,
-            )
-            if ollama_ranked:
-                prioritized_gaps = ollama_ranked
-                gap_source = "ollama"
 
         advanced_roadmap = self.roadmap_generator.generate(
             missing_skills=prioritized_gaps,
@@ -178,27 +155,10 @@ class AdvancedAnalyzePipeline:
         )
 
         rewrites = self.rewrite_engine.analyze_and_rewrite(resume_text)
-        gemini_rewrites = self.gemini_enhancer.improve_rewrites(
-            target_role=target_role,
-            bullets=rewrites,
-            limit=6,
-        )
         rewrite_source = "local"
-        if gemini_rewrites:
-            rewrites = gemini_rewrites
-            rewrite_source = "gemini"
 
         ats = self.ats_checker.evaluate(resume_text=resume_text, target_role_skills=role_skills)
-        gemini_ats = self.gemini_enhancer.enhance_ats_analysis(
-            resume_text=resume_text,
-            target_role=target_role,
-            role_skills=role_skills,
-            base_ats=ats,
-        )
         ats_source = "local"
-        if gemini_ats:
-            ats = gemini_ats
-            ats_source = "gemini"
 
         # Merge both detected (strength) and missing (gaps) skill cards.
         merged_insights = [item.__dict__ for item in detected_insights] + self._gap_insights(prioritized_gaps)
@@ -229,4 +189,6 @@ class AdvancedAnalyzePipeline:
             roadmap_advanced=advanced_roadmap,
             rewrites=rewrites,
             ats=ats,
+            predicted_category=base_result.predicted_category,
+            predicted_confidence=base_result.predicted_confidence,
         )

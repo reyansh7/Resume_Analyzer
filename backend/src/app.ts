@@ -10,6 +10,7 @@ import onboardingRoutes from "./routes/onboarding.routes";
 import resumeRoutes from "./routes/resume.routes";
 import { env } from "./utils/env";
 import { errorMiddleware } from "./middleware/error.middleware";
+import { getDatabase } from "./services/mongodb";
 
 export const app = express();
 
@@ -115,17 +116,34 @@ app.get("/api", (_req, res) => {
 
 app.get("/api/health/services", async (req, res) => {
   const started = Date.now();
+  let dbStatus = "checking...";
+  let dbDetail: string | undefined;
 
   try {
+    // Test database connection
+    try {
+      const db = await getDatabase();
+      await db.admin().ping();
+      dbStatus = "ok";
+    } catch (dbError) {
+      dbStatus = "down";
+      dbDetail = dbError instanceof Error ? dbError.message : String(dbError);
+    }
+
+    // Test ML service connection
     const mlResponse = await axios.get<{ status?: string }>(`${env.ML_SERVICE_URL}/health`, {
       timeout: 4000,
       headers: req.requestId ? { "x-request-id": req.requestId } : undefined
     });
 
-    return res.json({
-      status: "ok",
+    const overallStatus = dbStatus === "ok" ? "ok" : "degraded";
+    const statusCode = dbStatus === "ok" ? 200 : 503;
+
+    return res.status(statusCode).json({
+      status: overallStatus,
       requestId: req.requestId,
       backend: { status: "ok" },
+      database: { status: dbStatus, detail: dbDetail },
       ml: { status: mlResponse.data?.status === "ok" ? "ok" : "degraded" },
       elapsedMs: Date.now() - started
     });
@@ -140,9 +158,10 @@ app.get("/api/health/services", async (req, res) => {
       status: "degraded",
       requestId: req.requestId,
       backend: { status: "ok" },
+      database: { status: dbStatus, detail: dbDetail },
       ml: { status: "down", detail },
       elapsedMs: Date.now() - started,
-      action: "Start ML service on port 8000 and retry."
+      action: "Ensure MongoDB is running and ML service is started on port 8000."
     });
   }
 });

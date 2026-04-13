@@ -1,0 +1,61 @@
+{
+  "status": "success",
+  "timestamp": "2026-04-13T20:04:31.987592",
+  "duration_seconds": 526.8527865409851,
+  "config": {
+    "data": {
+      "csv_path": "Resume\\Resume.csv",
+      "pdf_root": "data",
+      "min_text_length": 100
+    },
+    "embedding": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "embedding_dim": 384
+    },
+    "model": {
+      "model_type": "similarity",
+      "loss_fn": "cosine"
+    }
+  },
+  "training": {
+    "training_samples": 25520,
+    "validation_samples": 200,
+    "embedding_dimension": 384,
+    "model_type": "similarity",
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "epochs": 1,
+    "batch_size": 32,
+    "learning_rate": 0.0001,
+    "baseline_performance": {
+      "accuracy": 0.95,
+      "precision": 0.95,
+      "recall": 1.0,
+      "f1_score": 0.9744,
+      "roc_auc": 0.9032,
+      "mean_reciprocal_rank": 0.0,
+      "average_similarity": 0.0
+    }
+  },
+  "evaluation": {
+    "test_samples": 200,
+    "performance": {
+      "accuracy": 0.95,
+      "precision": 0.95,
+      "recall": 1.0,
+      "f1_score": 0.9744,
+      "roc_auc": 0.9132,
+      "mean_reciprocal_rank": 0.0,
+      "average_similarity": 0.0
+    },
+    "average_similarity": 0.7927121764048934,
+    "similarity_std": 0.06441088582488894
+  },
+  "summary": {
+    "train_samples": 3250,
+    "val_samples": 686,
+    "test_samples": 718,
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "test_accuracy": 0.95,
+    "test_f1_score": 0.9744
+  }
+}

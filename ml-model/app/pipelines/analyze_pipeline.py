@@ -3,16 +3,13 @@ from pathlib import Path
 import os
 import re
 import unicodedata
+import logging
 from typing import Dict, List
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 from app.services.embedding_service import EmbeddingService
-from app.services.gemini_enhancement_service import GeminiEnhancementService
-from app.services.gemini_roadmap_service import GeminiRoadmapService
-from app.services.ollama_enhancement_service import OllamaEnhancementService
-from app.services.ollama_roadmap_service import OllamaRoadmapService
 from app.services.nlp_service import NlpService
 from app.utils.skill_dictionary import ROLE_SKILL_MAP, GENERIC_TRANSFERABLE_SKILLS, ROLE_CERTIFICATIONS
 
@@ -20,6 +17,8 @@ try:
     import joblib
 except Exception:
     joblib = None
+
+logger = logging.getLogger(__name__)
 
 
 ROLE_CATEGORY_MAP = {
@@ -317,36 +316,40 @@ class AnalysisResult:
     transferable_skills: List[str]
     roadmap: List[Dict[str, str]]
     certifications: List[str]
+    predicted_category: str | None = None
+    predicted_confidence: float | None = None
 
 
 class AnalyzePipeline:
     def __init__(self) -> None:
         self.nlp_service = NlpService()
         self.embedding_service = EmbeddingService()
-        self.gemini_enhancement_service = GeminiEnhancementService()
-        self.gemini_roadmap_service = GeminiRoadmapService()
-        self.ollama_enhancement_service = OllamaEnhancementService()
-        self.ollama_roadmap_service = OllamaRoadmapService()
         self.use_classifier_model = os.getenv("USE_RESUME_CLASSIFIER", "false").strip().lower() in {"1", "true", "yes", "on"}
         self.classifier_bundle = self._load_classifier_bundle()
 
     def _load_classifier_bundle(self):
         if not self.use_classifier_model:
+            logger.info("Custom resume classifier disabled via USE_RESUME_CLASSIFIER")
             return None
 
         if joblib is None:
+            logger.warning("joblib not available - cannot load custom classifier")
             return None
 
         model_path = Path(__file__).resolve().parents[2] / "saved_models" / "resume_classifier.joblib"
         if not model_path.exists():
+            logger.warning(f"Custom classifier model not found at {model_path}")
             return None
 
         try:
             bundle = joblib.load(model_path)
             if isinstance(bundle, dict) and bundle.get("pipeline") is not None:
+                logger.info(f"✅ Custom resume classifier loaded successfully from {model_path}")
                 return bundle
+            logger.warning(f"Loaded model from {model_path} but it's not a valid bundle")
             return None
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to load custom classifier: {e}")
             return None
 
     def _predict_category(self, resume_text: str) -> tuple[str | None, float | None]:
@@ -360,11 +363,36 @@ class AnalyzePipeline:
         try:
             predicted = pipeline.predict([resume_text])[0]
             confidence = None
+            
+            # Try to get confidence from predict_proba (ideal for probabilistic classifiers)
             if hasattr(pipeline, "predict_proba"):
                 probs = pipeline.predict_proba([resume_text])[0]
                 confidence = float(np.max(probs))
+            # Fall back to decision_function for SVM-like classifiers (LinearSVC, SVC)
+            elif hasattr(pipeline, "decision_function"):
+                try:
+                    decisions = pipeline.decision_function([resume_text])[0]
+                    # For multi-class, get the decision score for the predicted class
+                    if isinstance(decisions, np.ndarray):
+                        # Multi-class case: get score for predicted class
+                        class_idx = list(pipeline.classes_).index(predicted)
+                        confidence = float(decisions[class_idx])
+                    else:
+                        # Binary case: use decision value directly
+                        confidence = float(decisions)
+                    # Normalize decision function to [0, 1] using sigmoid
+                    confidence = 1.0 / (1.0 + np.exp(-confidence))
+                except Exception as e:
+                    logger.debug(f"Could not extract decision function confidence: {e}")
+                    confidence = None
+            
+            if confidence is not None:
+                logger.info(f"🎯 Custom model prediction: category={predicted}, confidence={confidence:.2%}")
+            else:
+                logger.info(f"🎯 Custom model prediction: category={predicted}, confidence=unavailable")
             return str(predicted), confidence
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Custom model prediction failed, falling back: {e}")
             return None, None
 
     def _resolve_target_category(self, role_key: str) -> str | None:
@@ -395,22 +423,53 @@ class AnalyzePipeline:
             return None
 
         pipeline = self.classifier_bundle.get("pipeline")
-        if pipeline is None or not hasattr(pipeline, "predict_proba"):
+        if pipeline is None:
             return None
 
         try:
-            classes = getattr(pipeline, "classes_", None)
-            if classes is None:
-                return None
+            # Try predict_proba first (ideal for probabilistic classifiers)
+            if hasattr(pipeline, "predict_proba"):
+                classes = getattr(pipeline, "classes_", None)
+                if classes is None:
+                    return None
 
-            classes_list = [str(label) for label in classes]
-            if target_category not in classes_list:
-                return None
+                classes_list = [str(label) for label in classes]
+                if target_category not in classes_list:
+                    return None
 
-            probs = pipeline.predict_proba([resume_text])[0]
-            class_index = classes_list.index(target_category)
-            return float(probs[class_index])
-        except Exception:
+                probs = pipeline.predict_proba([resume_text])[0]
+                class_index = classes_list.index(target_category)
+                return float(probs[class_index])
+            
+            # Fall back to decision_function for SVM classifiers
+            elif hasattr(pipeline, "decision_function"):
+                classes = getattr(pipeline, "classes_", None)
+                if classes is None:
+                    return None
+
+                classes_list = [str(label) for label in classes]
+                if target_category not in classes_list:
+                    return None
+
+                decisions = pipeline.decision_function([resume_text])[0]
+                class_index = classes_list.index(target_category)
+                
+                # Get decision score for target class
+                if isinstance(decisions, np.ndarray):
+                    score = float(decisions[class_index])
+                else:
+                    score = float(decisions)
+                
+                # Normalize to [0, 1] using sigmoid
+                probability = 1.0 / (1.0 + np.exp(-score))
+                logger.debug(f"Target category '{target_category}' probability: {probability:.2%}")
+                return probability
+            
+            logger.debug(f"No probability method available for target category '{target_category}'")
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Could not compute target category probability: {e}")
             return None
 
     def _extract_resume_certifications(self, resume_text: str, role_key: str) -> List[str]:
@@ -1050,7 +1109,14 @@ class AnalyzePipeline:
         if self._line_matches_any(lowered, CERTIFICATION_ENTRY_PATTERNS):
             return True
 
-        if len(lowered) <= 90 and re.search(r"\b(associate|professional|foundation|practitioner)\b", lowered):
+        # Enhanced detection for common cert patterns
+        if re.search(r"\b(?:aws|gcp|azure|oracle|google cloud)\b", lowered):
+            return True
+        
+        if re.search(r"\b(?:certified|certified?|certification)\b", lowered):
+            return True
+
+        if len(lowered) <= 90 and re.search(r"\b(associate|professional|foundation|practitioner|specialist|expert)\b", lowered):
             return True
 
         return False
@@ -1065,8 +1131,18 @@ class AnalyzePipeline:
 
         if self._line_matches_any(lowered, AWARD_ENTRY_PATTERNS):
             return True
-
-        if re.search(r"\b(smart india hackathon|hackathon winner|top\s+\d+)\b", lowered):
+        
+        # Enhanced detection for common award patterns
+        if re.search(r"\b(?:winner|finalist|ranked?|rank\s+\d+|top\s+\d+)\b", lowered):
+            return True
+        
+        if re.search(r"\b(?:gold|silver|bronze)\s+(?:medal|award)\b", lowered):
+            return True
+        
+        if re.search(r"\b(?:smart india|hackathon|competition|contest|challenge)\b", lowered):
+            return True
+        
+        if re.search(r"\b(?:achievement|recognized|recognition|honor|distinction)\b", lowered):
             return True
 
         return False
@@ -1090,6 +1166,7 @@ class AnalyzePipeline:
         return list(dict.fromkeys(detected))
 
     def _extract_awards(self, award_lines: List[str]) -> List[str]:
+        """Extract awards with improved detection logic."""
         awards: List[str] = []
         for line in self._merge_section_entries(award_lines):
             cleaned = self._clean_display_line(line)
@@ -1102,17 +1179,27 @@ class AnalyzePipeline:
             if cleaned.lower() in {"honors & awards", "awards", "honors"}:
                 continue
             inferred = self._infer_line_section(cleaned)
-            if inferred in {"projects", "experience", "other", "skills"}:
+            # Relaxed filtering - only skip if clearly not an award
+            if inferred in {"other", "skills"}:
                 continue
-            if re.search(r"\b(certified|certification|associate|professional|foundation|license|aws|azure|google|oracle|scrum|kubernetes)\b", cleaned.lower()):
+            # Don't exclude projects/experience if they're marked as awards
+            if inferred in {"projects", "experience"} and not self._is_likely_award_entry(cleaned):
                 continue
+            # Relaxed cert exclusion - only exclude if it's ONLY a certification
+            if re.search(r"\b(aws|azure|google|oracle|scrum|kubernetes)\b", cleaned.lower()):
+                if not re.search(r"\b(winner|finalist|award|achievement|recognition|honor)\b", cleaned.lower()):
+                    continue
             if not self._is_likely_award_entry(cleaned):
-                continue
+                # Even if not marked as award, include if reasonably looks like one
+                if not re.search(r"\b(won|winner|finalist|achievement|recognized|recognition)\b", cleaned.lower()):
+                    continue
+
             awards.append(self._compress_entry(cleaned, max_len=180))
 
         return list(dict.fromkeys(awards))[:8]
 
     def _extract_certifications_from_section(self, certification_lines: List[str]) -> List[str]:
+        """Extract certifications with improved detection logic."""
         certs: List[str] = []
         for line in self._merge_section_entries(certification_lines):
             cleaned = self._clean_display_line(line)
@@ -1125,10 +1212,15 @@ class AnalyzePipeline:
             if cleaned.lower() in {"certifications", "certification"}:
                 continue
             inferred = self._infer_line_section(cleaned)
-            if inferred in {"projects", "experience", "other", "skills"}:
+            # Relaxed filtering - include if from cert/award section
+            if inferred in {"other", "skills"}:
+                continue
+            if inferred in {"projects", "experience"} and not self._is_likely_certification_entry(cleaned):
                 continue
             if not self._is_likely_certification_entry(cleaned):
-                continue
+                # Even if not marked as cert, include if has cert-like patterns
+                if not re.search(r"\b(?:aws|azure|google|oracle|certified|certification|associate|professional)\b", cleaned.lower()):
+                    continue
             certs.append(self._compress_entry(cleaned, max_len=180))
 
         ordered = list(dict.fromkeys(certs))
@@ -1266,6 +1358,7 @@ class AnalyzePipeline:
         return top_projects[0] if top_projects else None
 
     def _extract_best_experiences(self, experience_lines: List[str]) -> List[str]:
+        """Extract best experiences with improved and relaxed filtering."""
         if not experience_lines:
             return []
 
@@ -1273,16 +1366,21 @@ class AnalyzePipeline:
         cleaned_lines = [self._clean_display_line(line) for line in cleaned_lines if len(line) >= 6]
 
         keyword_weights = {
-            "led": 2,
-            "managed": 2,
-            "coordinated": 2,
+            "led": 3,
+            "managed": 3,
+            "coordinated": 3,
             "delivered": 2,
-            "built": 1,
-            "improved": 2,
-            "organized": 1,
+            "built": 2,
+            "improved": 3,
+            "organized": 2,
             "achieved": 2,
             "supported": 1,
             "assessed": 1,
+            "mentored": 2,
+            "guided": 1,
+            "created": 2,
+            "developed": 2,
+            "implemented": 2,
         }
 
         scored: List[tuple[int, str]] = []
@@ -1292,30 +1390,52 @@ class AnalyzePipeline:
             text = line.lower()
             if self._is_education_or_year_noise(line):
                 continue
-            if self._infer_line_section(line) in {"projects", "other", "certifications"}:
+            # Relaxed filtering - don't exclude projects/certifications if they have experience markers
+            inferred = self._infer_line_section(line)
+            if inferred == "other":
                 continue
-            if re.search(r"\b(project|streamlit|kaggle|classifier|dataset|model|nlp|tensorflow|pytorch)\b", text):
+            if inferred == "certifications" and not re.search(r"\b(led|managed|worked|coordinated|team|organization|company)\b", text):
                 continue
-
-            has_experience_marker = bool(
+            
+            # More lenient on project-experience overlap
+            has_action_verb = bool(re.search(r"\b(led|managed|coordinated|delivered|built|improved|organized|achieved|supported|assessed|created|developed|implemented|mentored|worked|guided|spearheaded|pioneered)\b", text))
+            
+            # Check for role/context indicators but don't require them
+            has_role_context = bool(
                 re.search(
                     r"\b(intern|internship|job|worked|work experience|employment|company|organization|club|committee|chapter|member|coordinator|lead|head|president|secretary|volunteer|executive|associate|officer|team)\b",
                     text,
                 )
             )
-            if not has_experience_marker:
-                continue
-
+            
+            # Score based on action verbs and context
+            score = 0
+            if has_action_verb:
+                score += 3
+            if has_role_context:
+                score += 2
+            
+            # Skip only if no action verb AND no role context (very generic)
+            if score == 0:
+                if len(line) < 40:  # Very short lines without context
+                    continue
+                score = 1  # Give minimal credit to longer generic lines
+            
+            # Education/year noise check
             if re.search(r"\b(hsc|ssc|cgpa|gpa|bachelor|master|degree|education|school|college|university|xii|x)\b", text):
-                continue
+                if not has_action_verb and not has_role_context:
+                    continue
+                score = max(0, score - 2)  # Penalize but don't exclude if has other markers
 
-            score = sum(weight for key, weight in keyword_weights.items() if key in text)
-            score += len(re.findall(r"\b\d+(?:\.\d+)?%?\b", text))
+            score += sum(weight for key, weight in keyword_weights.items() if key in text)
+            score += len(re.findall(r"\b\d+(?:,\d{3})*\s*(?:%|million|thousand|people|team|members?)?\b", text))
             if len(line) > 60:
                 score += 1
-            if re.search(r"\b(led|managed|created|implemented|coordinated|improved|organized|delivered)\b", text):
-                score += 2
-            scored.append((score, self._compress_entry(line, max_len=220)))
+            if len(line) > 100:
+                score += 1
+            
+            if score > 0:
+                scored.append((score, self._compress_entry(line, max_len=220)))
 
         scored.sort(key=lambda item: item[0], reverse=True)
         top = [line for _, line in scored[:3]]
@@ -1361,6 +1481,9 @@ class AnalyzePipeline:
 
     def run(self, resume_text: str, target_role: str, current_skills: List[str], profession: str, level: str) -> AnalysisResult:
         resume_text = self._normalize_resume_text(resume_text)
+        
+        classifier_status = "🎯 ENABLED" if self.classifier_bundle else "⚠️ DISABLED"
+        logger.info(f"Starting analysis with custom model: {classifier_status}")
 
         normalized_resume_text = " ".join(resume_text.split())
         sections = self._extract_resume_sections(resume_text)
@@ -1468,38 +1591,17 @@ class AnalyzePipeline:
         if target_probability is not None:
             ml_component = 100.0 * target_probability
             match_score = (0.82 * heuristic_score) + (0.18 * ml_component)
+            logger.info(f"📊 Custom model contribution: heuristic={heuristic_score:.2f}, ml_component={ml_component:.2f}, final_match_score={match_score:.2f}")
         else:
             match_score = heuristic_score
+            logger.info(f"ℹ️ Custom model unavailable, using heuristic score: {heuristic_score:.2f}")
         match_score = max(0.0, min(100.0, match_score))
+        logger.info(f"✨ Final analysis: category={predicted_category if predicted_category else 'unknown'}, confidence={predicted_confidence:.2%}" if predicted_confidence else f"✨ Final analysis: category={predicted_category if predicted_category else 'unknown'}")
 
         local_roadmap = self._build_roadmap(missing_skills, target_role, level)
-        gemini_roadmap = self.gemini_roadmap_service.generate_roadmap(
-            target_role=target_role,
-            level=level,
-            strengths=strengths,
-            skill_gaps=missing_skills,
-            max_steps=5,
-        )
-        ollama_roadmap = self.ollama_roadmap_service.generate_roadmap(
-            target_role=target_role,
-            level=level,
-            strengths=strengths,
-            skill_gaps=missing_skills,
-            max_steps=5,
-        )
-
-        if gemini_roadmap is not None:
-            roadmap = gemini_roadmap
-            roadmap_source = "gemini"
-            roadmap_model = self.gemini_roadmap_service.model
-        elif ollama_roadmap is not None:
-            roadmap = ollama_roadmap
-            roadmap_source = "ollama"
-            roadmap_model = self.ollama_roadmap_service.model
-        else:
-            roadmap = local_roadmap
-            roadmap_source = "local"
-            roadmap_model = None
+        roadmap = local_roadmap
+        roadmap_source = "local"
+        roadmap_model = None
 
         section_certs = self._extract_certifications_from_section(sections["certifications"])
         detected_certs = self._extract_resume_certifications(resume_text, role_key)
@@ -1528,44 +1630,6 @@ class AnalyzePipeline:
 
         overview_source = "local"
         overview_model = None
-        gemini_overview = self.gemini_enhancement_service.generate_overview_highlights(
-            resume_text=resume_text,
-            target_role=target_role,
-            level=level,
-            experience_candidates=featured_experiences,
-            soft_skill_candidates=soft_skills_highlights,
-            education_candidates=education_highlights,
-        )
-        ollama_overview = self.ollama_enhancement_service.generate_overview_highlights(
-            resume_text=resume_text,
-            target_role=target_role,
-            level=level,
-            experience_candidates=featured_experiences,
-            soft_skill_candidates=soft_skills_highlights,
-            education_candidates=education_highlights,
-        )
-
-        selected_overview = None
-        if gemini_overview:
-            selected_overview = (gemini_overview, "gemini", self.gemini_enhancement_service.model)
-        elif ollama_overview:
-            selected_overview = (ollama_overview, "ollama", self.ollama_enhancement_service.model)
-
-        if selected_overview:
-            overview_payload, source, model = selected_overview
-            model_experiences = [item for item in overview_payload.get("experience_highlights", []) if isinstance(item, str)]
-            model_soft = [item for item in overview_payload.get("soft_skills_highlights", []) if isinstance(item, str)]
-            model_education = [item for item in overview_payload.get("education_highlights", []) if isinstance(item, str)]
-
-            if model_experiences:
-                featured_experiences = model_experiences[:5]
-            if model_soft:
-                soft_skills_highlights = model_soft[:5]
-            if model_education:
-                education_highlights = model_education[:5]
-
-            overview_source = source
-            overview_model = model
 
         # Parsed structure is persisted in MongoDB for dashboard rendering.
         parsed_resume = {
@@ -1603,4 +1667,6 @@ class AnalyzePipeline:
             transferable_skills=transferable_display,
             roadmap=roadmap,
             certifications=certs,
+            predicted_category=predicted_category,
+            predicted_confidence=predicted_confidence,
         )

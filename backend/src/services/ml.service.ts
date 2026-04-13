@@ -17,6 +17,8 @@ export type MlResponse = {
   transferableSkills: string[];
   roadmap: Array<{ title: string; description: string }>;
   certifications: string[];
+  predictedCategory?: string;
+  predictedConfidence?: number;
 };
 
 export type MlSkillInsight = {

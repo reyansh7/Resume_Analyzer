@@ -36,12 +36,15 @@ services:
       - ml-model
     environment:
       PORT: 8080
-      NODE_ENV: production
-      MONGODB_URI: mongodb://mongodb:27017
-      MONGODB_DB_NAME: resume_analyzer
-      JWT_SECRET: super_secure_jwt_secret_key
-      CORS_ORIGIN: http://localhost:3000
-      ML_SERVICE_URL: http://ml-model:8000
+      NODE_ENV: ${NODE_ENV:-production}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017}
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-resume_analyzer}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-model:8000}
+      STORE_RAW_RESUME_TEXT: ${STORE_RAW_RESUME_TEXT:-false}
+      RESUME_TEXT_MAX_CHARS: ${RESUME_TEXT_MAX_CHARS:-4000}
     ports:
       - "8080:8080"
 
@@ -54,7 +57,7 @@ services:
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:8080/api
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8080/api}
     ports:
       - "3000:3000"
 

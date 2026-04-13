@@ -271,6 +271,20 @@ export default function DashboardPage() {
     setStoredResult(mutation.data);
   }, [mutation.data]);
 
+  // Prevent page unload while analysis is in progress to allow background processing
+  useEffect(() => {
+    if (!requestSettled && typeof window !== "undefined") {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = "Resume analysis is in progress. If you leave, it will continue in the background and results will be saved.";
+        return e.returnValue;
+      };
+
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }
+  }, [requestSettled]);
+
   const result = useMemo(() => {
     const activeData = mutation.data ?? storedResult;
     if (activeData) {

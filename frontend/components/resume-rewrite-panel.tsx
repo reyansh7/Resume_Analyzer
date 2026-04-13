@@ -18,7 +18,11 @@ function sanitizeAfterText(value: string) {
   if (!source) return source;
 
   let cleaned = source
-    .replace(/,\s*(?:improving|improved|increase(?:d|ing)?)\s+efficiency\s+by\s+[^,.!?]+%?\.?/gi, "")
+    // Remove "with clear ownership and measurable outcomes" phrases
+    .replace(/\s*with\s+clear\s+ownership\s+and\s+measurable\s+outcomes[\s,.]*?/gi, "")
+    // Remove other redundant ownership/outcome phrases
+    .replace(/\s*with\s+clear\s+(?:ownership|accountability)[\s,.]*?/gi, "")
+    .replace(/\s*[,;]\s*(?:improving|improved|increase(?:d|ing)?)\s+efficiency\s+by\s+[^,.!?]+%?\.?/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 

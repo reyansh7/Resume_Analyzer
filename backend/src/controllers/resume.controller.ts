@@ -75,7 +75,9 @@ function buildFallbackBaseResult(input: {
     skillGaps,
     transferableSkills,
     roadmap,
-    certifications: [] as string[]
+    certifications: [] as string[],
+    predictedCategory: undefined,
+    predictedConfidence: undefined
   };
 }
 
@@ -125,16 +127,18 @@ export async function analyzeResumeController(req: Request, res: Response, next:
     const requestId = req.requestId;
     const userId = req.user?.userId;
     const userEmail = req.user?.email;
-    if (!userId) return res.status(401).json({ message: "Unauthorized", requestId });
+    // Allow guest analysis without authentication
 
     const file = req.file;
     if (!file) return res.status(400).json({ message: "Resume file is required", requestId });
 
-    let user = await findUserById(userId);
-    if (!user && userEmail) {
-      user = await upsertUserByEmail(userEmail);
+    let user: any = null;
+    if (userId) {
+      user = await findUserById(userId);
+      if (!user && userEmail) {
+        user = await upsertUserByEmail(userEmail);
+      }
     }
-    if (!user) return res.status(404).json({ message: "User not found. Please login again.", requestId });
 
     let extracted;
     try {
@@ -158,10 +162,10 @@ export async function analyzeResumeController(req: Request, res: Response, next:
     try {
       mlResult = await analyzeResumeWithMl({
         resumeText,
-        targetRole: user.targetRole || "Software Engineer",
-        currentSkills: user.skills,
-        profession: user.profession || "Engineer",
-        experienceLevel: user.level || "Mid"
+        targetRole: user?.targetRole || "Software Engineer",
+        currentSkills: user?.skills || [],
+        profession: user?.profession || "Engineer",
+        experienceLevel: user?.level || "Mid"
       }, {
         requestId,
         uploadFileName: file.originalname,
@@ -171,17 +175,17 @@ export async function analyzeResumeController(req: Request, res: Response, next:
       console.warn(`[trace] requestId=${requestId ?? "n/a"} route=analyze fallback=local reason=ml_failure error=${error instanceof Error ? error.message : "unknown"}`);
       mlResult = buildFallbackBaseResult({
         resumeText,
-        targetRole: user.targetRole || "Software Engineer",
-        currentSkills: user.skills,
-        profession: user.profession || "Engineer",
-        experienceLevel: user.level || "Mid"
+        targetRole: user?.targetRole || "Software Engineer",
+        currentSkills: user?.skills || [],
+        profession: user?.profession || "Engineer",
+        experienceLevel: user?.level || "Mid"
       });
     }
 
     let analysis;
     try {
       analysis = await createAnalysis({
-        userId: user.id,
+        userId: user?.id,
         fileName: file.originalname,
         resumeText,
         parsedResume: mlResult.parsedResume,
@@ -196,7 +200,7 @@ export async function analyzeResumeController(req: Request, res: Response, next:
       console.warn(`[trace] requestId=${requestId ?? "n/a"} route=analyze persistence=fallback reason=${error instanceof Error ? error.message : "unknown"}`);
       analysis = {
         id: randomUUID(),
-        userId: user.id,
+        userId: user?.id,
         fileName: file.originalname,
         resumeText,
         parsedResume: mlResult.parsedResume,
@@ -217,7 +221,9 @@ export async function analyzeResumeController(req: Request, res: Response, next:
       skillGaps: analysis.skillGaps,
       transferableSkills: analysis.transferableSkills,
       roadmap: analysis.roadmap,
-      certifications: analysis.certifications
+      certifications: analysis.certifications,
+      predictedCategory: mlResult?.predictedCategory,
+      predictedConfidence: mlResult?.predictedConfidence
     });
   } catch (error) {
     return next(error);
@@ -229,16 +235,18 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
     const requestId = req.requestId;
     const userId = req.user?.userId;
     const userEmail = req.user?.email;
-    if (!userId) return res.status(401).json({ message: "Unauthorized", requestId });
+    // Allow guest analysis without authentication
 
     const file = req.file;
     if (!file) return res.status(400).json({ message: "Resume file is required", requestId });
 
-    let user = await findUserById(userId);
-    if (!user && userEmail) {
-      user = await upsertUserByEmail(userEmail);
+    let user: any = null;
+    if (userId) {
+      user = await findUserById(userId);
+      if (!user && userEmail) {
+        user = await upsertUserByEmail(userEmail);
+      }
     }
-    if (!user) return res.status(404).json({ message: "User not found. Please login again.", requestId });
 
     let extracted;
     try {
@@ -262,19 +270,19 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
     let advancedMlResult: Awaited<ReturnType<typeof analyzeResumeWithMlV2>> | null = null;
     const fallbackBase = buildFallbackBaseResult({
       resumeText,
-      targetRole: user.targetRole || "Software Engineer",
-      currentSkills: user.skills,
-      profession: user.profession || "Engineer",
-      experienceLevel: user.level || "Mid"
+      targetRole: user?.targetRole || "Software Engineer",
+      currentSkills: user?.skills || [],
+      profession: user?.profession || "Engineer",
+      experienceLevel: user?.level || "Mid"
     });
 
     try {
       advancedMlResult = await analyzeResumeWithMlV2({
         resumeText,
-        targetRole: user.targetRole || "Software Engineer",
-        currentSkills: user.skills,
-        profession: user.profession || "Engineer",
-        experienceLevel: user.level || "Mid"
+        targetRole: user?.targetRole || "Software Engineer",
+        currentSkills: user?.skills || [],
+        profession: user?.profession || "Engineer",
+        experienceLevel: user?.level || "Mid"
       }, {
         requestId,
         uploadFileName: file.originalname,
@@ -320,7 +328,7 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
     let analysis;
     try {
       analysis = await createAnalysis({
-        userId: user.id,
+        userId: user?.id,
         fileName: file.originalname,
         resumeText,
         parsedResume: {
@@ -349,7 +357,7 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
       console.warn(`[trace] requestId=${requestId ?? "n/a"} route=analyze/v2 persistence=fallback reason=${error instanceof Error ? error.message : "unknown"}`);
       analysis = {
         id: randomUUID(),
-        userId: user.id,
+        userId: user?.id,
         fileName: file.originalname,
         resumeText,
         parsedResume: {
@@ -385,6 +393,8 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
       transferableSkills: analysis.transferableSkills,
       roadmap: analysis.roadmap,
       certifications: analysis.certifications,
+      predictedCategory: baseMlResult?.predictedCategory,
+      predictedConfidence: baseMlResult?.predictedConfidence,
       ...(advancedMlResult
         ? {
             overall_score: advancedMlResult.overall_score,

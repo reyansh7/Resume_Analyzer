@@ -1,0 +1,169 @@
+{
+  "results": [
+    {
+      "test_name": "Tech Resume",
+      "certifications": [
+        "AWS Certified Solutions Architect Professional",
+        "Google Cloud Professional Data Engineer",
+        "Azure Developer Associate Certificate",
+        "Certified Kubernetes Administrator (CKA)",
+        "AWS Developer Associate"
+      ],
+      "awards": [
+        "Winner of Smart India Hackathon 2023",
+        "Finalist in National Coding Competition 2022",
+        "Achieved Pupil rank on Codeforces with maximum rating of 2100"
+      ],
+      "experiences": [
+        "Led cross-functionalteam of 5 engineers to deliver cloud migration",
+        "Managed $2 M infrastructure budget and reduced costs by 40%",
+        "Coordinated with external agencies on 10+ campaigns"
+      ],
+      "extraction_counts": {
+        "certifications": 5,
+        "awards": 3,
+        "experiences": 3
+      }
+    },
+    {
+      "test_name": "Minimal Resume",
+      "certifications": [],
+      "awards": [],
+      "experiences": [],
+      "extraction_counts": {
+        "certifications": 0,
+        "awards": 0,
+        "experiences": 0
+      }
+    },
+    {
+      "test_name": "Awards Focused",
+      "certifications": [],
+      "awards": [
+        "ACHIEVEMENT HIGHLIGHTS",
+        "Finalist - National Innovation Challenge 2024",
+        "Achieved Pupil rank on Codeforces",
+        "Maximum rating: 1232,",
+        "Ranked 1 st in Computer Science Category"
+      ],
+      "experiences": [
+        "2024 Winner - Smart India Hackathon (Team Lead) 2023 Gold Medal - National Science Olympiad"
+      ],
+      "extraction_counts": {
+        "certifications": 0,
+        "awards": 5,
+        "experiences": 1
+      }
+    },
+    {
+      "test_name": "Experience Focused",
+      "certifications": [],
+      "awards": [],
+      "experiences": [
+        "Led 30-member technicalclub organizing 15+ workshops",
+        "Led architecture redesign of payment system handling 10 M+ transactions daily",
+        "Coordinated with product and data teams to reduce transaction latency by 50%"
+      ],
+      "extraction_counts": {
+        "certifications": 0,
+        "awards": 0,
+        "experiences": 3
+      }
+    }
+  ],
+  "patterns": {
+    "certifications": [
+      "expert",
+      "oracle",
+      "docker",
+      "microsoft",
+      "license",
+      "salesforce",
+      "accredited",
+      "nptel",
+      "google cloud",
+      "comptia",
+      "accreditation",
+      "specialist",
+      "kubernetes",
+      "foundation",
+      "certified",
+      "vendor",
+      "professional",
+      "licensed",
+      "aws",
+      "azure",
+      "associate",
+      "udemy",
+      "credential",
+      "coursera",
+      "terraform",
+      "scrum",
+      "certificate",
+      "certification"
+    ],
+    "awards": [
+      "winner",
+      "outstanding",
+      "award",
+      "dean's list",
+      "honorable",
+      "first place",
+      "honours",
+      "best",
+      "placed",
+      "recognized",
+      "awardee",
+      "ranking",
+      "medal",
+      "rank",
+      "ranked",
+      "finalist",
+      "scholastic",
+      "awarded",
+      "scholarship",
+      "recognition",
+      "honor",
+      "prize",
+      "excellence",
+      "top performer",
+      "exceptional",
+      "achievement",
+      "achieved",
+      "accomplishment",
+      "third place",
+      "distinction",
+      "medalist",
+      "second place",
+      "won"
+    ],
+    "experiences": [
+      "spearheaded",
+      "improved",
+      "worked",
+      "delivered",
+      "established",
+      "organized",
+      "implemented",
+      "worked on",
+      "executed",
+      "initiated",
+      "guided",
+      "conducted",
+      "led",
+      "managed",
+      "achieved",
+      "supported",
+      "developed",
+      "mentored",
+      "oversaw",
+      "coordinated",
+      "pioneered",
+      "built",
+      "assessed",
+      "responsible for",
+      "created",
+      "supervised"
+    ]
+  }
+}

@@ -1,14 +1,27 @@
 from typing import List
+import os
 import numpy as np
 
 
 class EmbeddingService:
-    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> None:
+    _shared_model = None
+    _shared_model_name = None
+
+    def __init__(self, model_name: str | None = None) -> None:
+        resolved_model_name = (model_name or os.getenv("MODEL_NAME") or "sentence-transformers/all-MiniLM-L6-v2").strip()
+        self.model_name = resolved_model_name
+        if EmbeddingService._shared_model is not None and EmbeddingService._shared_model_name == resolved_model_name:
+            self.model = EmbeddingService._shared_model
+            return
+
         self.model = None
-        self.model_name = model_name
         try:
             from sentence_transformers import SentenceTransformer
-            self.model = SentenceTransformer(model_name)
+
+            loaded_model = SentenceTransformer(resolved_model_name)
+            EmbeddingService._shared_model = loaded_model
+            EmbeddingService._shared_model_name = resolved_model_name
+            self.model = loaded_model
         except Exception:
             self.model = None
 

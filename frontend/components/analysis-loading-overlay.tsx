@@ -35,6 +35,48 @@ export function AnalysisLoadingOverlay({ visible, requestInFlight, onFinished }:
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
 
+  // Lock scroll and hide scrollbar while analysis is running
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    if (visible) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      const scrollX = window.scrollX;
+
+      // Hide scrollbar and prevent scrolling
+      const originalOverflow = document.documentElement.style.overflow;
+      const originalOverflowY = document.documentElement.style.overflowY;
+      const originalPaddingRight = document.documentElement.style.paddingRight;
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.overflowY = "hidden";
+      if (scrollbarWidth > 0) {
+        document.documentElement.style.paddingRight = `${scrollbarWidth}px`;
+      }
+
+      // Prevent scroll via wheel and touch events
+      const preventScroll = (e: Event) => e.preventDefault();
+      document.addEventListener("wheel", preventScroll, { passive: false });
+      document.addEventListener("touchmove", preventScroll, { passive: false });
+
+      return () => {
+        // Restore original styles
+        document.documentElement.style.overflow = originalOverflow;
+        document.documentElement.style.overflowY = originalOverflowY;
+        document.documentElement.style.paddingRight = originalPaddingRight;
+
+        // Remove scroll prevention
+        document.removeEventListener("wheel", preventScroll);
+        document.removeEventListener("touchmove", preventScroll);
+
+        // Restore scroll position
+        window.scrollTo(scrollX, scrollY);
+      };
+    }
+  }, [visible]);
+
   const setRoadRef = (index: number, element: SVGPathElement | null) => {
     if (!element) return;
     roadsRef.current[index] = element;
@@ -104,11 +146,11 @@ export function AnalysisLoadingOverlay({ visible, requestInFlight, onFinished }:
       await runTween(() => {
         const timeline = gsap
           .timeline()
-          .to(overlay, { opacity: 1, duration: 0.3, ease: "power2.out" })
-          .to(title, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.2)" }, "+=0.1");
+          .to(overlay, { opacity: 1, duration: 0.2, ease: "power2.out" })
+          .to(title, { opacity: 1, y: 0, duration: 0.3, ease: "back.out(1.2)" }, "+=0.05");
 
         if (svg) {
-          timeline.to(svg, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, "-=0.2");
+          timeline.to(svg, { opacity: 1, scale: 1, duration: 0.35, ease: "power2.out" }, "-=0.1");
         }
 
         return timeline;
@@ -118,16 +160,16 @@ export function AnalysisLoadingOverlay({ visible, requestInFlight, onFinished }:
 
       for (let step = 0; step < STEPS.length; step += 1) {
         setActiveStep(step);
-        await runTween(() => gsap.to(cards[step], { opacity: 1, scale: 1, y: 0, duration: 0.6, ease: "back.out(1.6)" }));
+        await runTween(() => gsap.to(cards[step], { opacity: 1, scale: 1, y: 0, duration: 0.4, ease: "back.out(1.6)" }));
         if (cancelled) return;
 
-        await runTween(() => gsap.to({}, { duration: 0.4 }));
+        await runTween(() => gsap.to({}, { duration: 0.25 }));
         if (cancelled) return;
 
         setCompletedSteps((prev) => (prev.includes(step) ? prev : [...prev, step]));
 
         if (step < roads.length) {
-          await runTween(() => gsap.to(roads[step], { strokeDashoffset: 0, duration: 0.8, ease: "power1.inOut" }));
+          await runTween(() => gsap.to(roads[step], { strokeDashoffset: 0, duration: 0.5, ease: "power1.inOut" }));
           if (cancelled) return;
         }
       }
@@ -167,7 +209,7 @@ export function AnalysisLoadingOverlay({ visible, requestInFlight, onFinished }:
   ];
 
   return (
-    <div ref={overlayRef} className="fixed inset-0 z-[100] flex flex-col justify-center items-center bg-[#FDFCFB]/95 dark:bg-[#0B1120]/95 backdrop-blur-xl overflow-hidden">
+    <div ref={overlayRef} className="fixed inset-0 z-[100] flex flex-col justify-center items-center bg-[#FDFCFB]/95 dark:bg-[#0B1120]/95 backdrop-blur-xl overflow-hidden pointer-events-auto touchable-none" style={{ overscrollBehavior: "contain" }}>
       <div ref={titleRef} className="absolute top-[4%] md:top-[8%] text-center z-10 px-4">
         <h2 className="text-2xl sm:text-3xl md:text-5xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100 mb-3 sm:mb-4">
           Analyzing your resume...

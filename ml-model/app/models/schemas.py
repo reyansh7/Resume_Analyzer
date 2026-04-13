@@ -23,6 +23,8 @@ class AnalyzeResponse(BaseModel):
     transferableSkills: List[str]
     roadmap: List[RoadmapStep]
     certifications: List[str]
+    predictedCategory: str | None = None
+    predictedConfidence: float | None = None
 
 
 class SkillBreakdown(BaseModel):

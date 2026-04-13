@@ -1,137 +1,328 @@
-# Resume Analyzer
+# 🚀 Resume Analyzer - Production Ready
 
-AI-powered resume analysis app with three services:
+AI-powered resume analysis application with Gemini integration for skill roadmaps.
 
-- `frontend/`: Next.js app (port `3000`)
-- `backend/`: Express + MongoDB API (port `8080`)
-- `ml-model/`: FastAPI ML service (port `8000`)
+**Status**: ✅ **Production Ready for Render Deployment**
 
----
+## Quick Links
+
+- 📋 [Render Deployment Guide](RENDER_DEPLOYMENT.md) - Complete step-by-step deployment
+- ✅ [Production Checklist](PRODUCTION_CHECKLIST.md) - All production fixes verified
+- 🔒 [Environment Setup](backend/.env.production.example) - Secure configuration
+
+## Key Features
+
+✅ Resume PDF upload and parsing  
+✅ ATS compatibility scoring  
+✅ Skill extraction and matching  
+✅ Experience highlights extraction  
+✅ Job description similarity matching  
+✅ AI-powered learning roadmaps (Gemini)  
+✅ Dashboard with analytics  
+✅ Responsive mobile-first UI  
+
+## Tech Stack
+
+| Component | Technology | Port |
+|-----------|-----------|------|
+| Frontend | Next.js 14 + TypeScript + Tailwind | 3000 |
+| Backend | Express.js + MongoDB + JWT | 8080 |
+| ML | FastAPI + scikit-learn + spaCy | 8000 |
+| Database | MongoDB Atlas (Cloud) | - |
+
+## Services Architecture
+
+```
+Web Browser
+    ↓
+Frontend (Next.js) ← Authentication & API ← Backend (Express)
+    ↓                                              ↓
+                                        ML Service (FastAPI)
+                                        ↓
+                                    MongoDB Atlas
+```
 
 ## Prerequisites
 
-Install these first:
-
-- Node.js `20+` and npm
-- Python `3.11+`
-- Docker Desktop (only if using Docker run)
-- MongoDB `7+` (only if running locally without Docker DB)
+- **Node.js**: 20+
+- **Python**: 3.11+
+- **Docker**: Optional (recommended for production-like environment)
+- **MongoDB**: Free Atlas account (https://www.mongodb.com/cloud/atlas)
 
 ---
 
-## Option A: Run everything with Docker (recommended)
+## Local Development
 
-From the project root:
+### Option A: Docker Compose (Recommended)
 
 ```bash
+# Build and start all services
 docker compose up --build
-```
 
-Services:
+# Access services
+# Frontend:     http://localhost:3000
+# Backend:      http://localhost:8080
+# ML Service:   http://localhost:8000
+# MongoDB:      localhost:27017
 
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8080`
-- Backend health: `http://localhost:8080/health`
-- ML service health: `http://localhost:8000/health`
-- MongoDB: `localhost:27017`
-
-To stop:
-
-```bash
+# Stop all services
 docker compose down
 ```
 
----
+### Option B: Manual Setup (4 Terminals)
 
-## Option B: Run locally (without Docker)
+**Terminal 1: MongoDB**
+- Use MongoDB Atlas or local MongoDB
+- No setup needed if using Docker
 
-Use **four terminals** (mongodb, frontend, backend, ml-model).
-
-### 1) Start MongoDB
-
-Make sure MongoDB is running on `mongodb://localhost:27017`.
-
-### 2) Run ML service
+**Terminal 2: ML Service**
 ```bash
 cd ml-model
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # Mac/Linux
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-
-c:/Users/reyan/OneDrive/Desktop/Resume_Analyzer/ml-model/.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
-Optional env file:
-
-```bash
-copy .env.example .env
-```
-
-To enable Gemini for roadmap/advice generation in `ml-model/.env`:
-
-```dotenv
-USE_GEMINI_ROADMAP=true
-GEMINI_API_KEY=your_api_key_here
-GEMINI_MODEL=gemini-2.0-flash
-GEMINI_TIMEOUT_MS=8000
-```
-
-To enable local Ollama roadmap generation in `ml-model/.env`:
-
-```dotenv
-USE_OLLAMA_ROADMAP=true
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=deepseek-r1:8b
-OLLAMA_TIMEOUT_MS=20000
-OLLAMA_MAX_RETRIES=1
-```
-
-Then pull and run your Ollama model:
-
-```bash
-ollama pull deepseek-r1:8b
-ollama run deepseek-r1:8b
-```
-
-Compare roadmap quality and latency between Ollama models:
-
-```bash
-cd ml-model
-python scripts/benchmark_ollama_roadmap.py --models deepseek-r1:8b llama3.1:8b --runs 3 --timeout-seconds 60 --max-steps 5
-```
-
-Notes:
-- Roadmap generation provider priority is: `Gemini -> Ollama -> local deterministic fallback`.
-- Overview enrichment provider priority is: `Gemini -> Ollama -> local`.
-- Advanced gap prioritization provider priority is: `Gemini -> Ollama -> local`.
-- Skill gaps and scoring remain deterministic in local ML logic.
-- If Gemini or Ollama fails/times out, the service automatically falls back.
-
-### 3) Run backend
-
+**Terminal 3: Backend**
 ```bash
 cd backend
-copy .env.example .env
 npm install
+cp .env.example .env
+# Edit .env: ML_SERVICE_URL=http://localhost:8000
 npm run dev
 ```
 
-After copying `backend/.env.example` to `backend/.env`, update this value for local run:
-
-```dotenv
-ML_SERVICE_URL=http://localhost:8000
-MONGODB_URI=mongodb://localhost:27017
-MONGODB_DB_NAME=resume_analyzer
-```
-
-### 4) Run frontend
-
+**Terminal 4: Frontend**
 ```bash
 cd frontend
-copy .env.example .env.local
 npm install
+cp .env.example .env.local
 npm run dev
+```
+
+---
+
+## Environment Variables
+
+### Backend (.env)
+
+Required for production:
+```env
+NODE_ENV=production
+PORT=8080
+MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/resume_analyzer
+JWT_SECRET=<GENERATE_32_CHAR_RANDOM_STRING>
+CORS_ORIGIN=https://your-frontend-domain.com
+```
+
+See [backend/.env.production.example](backend/.env.production.example) for all options.
+
+### Frontend (.env.local)
+
+Required:
+```env
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8080/api
+```
+
+For production:
+```env
+NEXT_PUBLIC_BACKEND_URL=https://your-backend-domain.com/api
+```
+
+See [frontend/.env.production.example](frontend/.env.production.example) for production setup.
+
+---
+
+## Production Deployment on Render
+
+### 🚀 Quick deployment:
+
+```bash
+# 1. Generate secure JWT secret
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# 2. Push to GitHub
+git add . && git commit -m "Production ready" && git push origin main
+
+# 3. Follow RENDER_DEPLOYMENT.md for complete setup
+```
+
+### What's Included for Production
+
+✅ All hardcoded secrets removed  
+✅ Environment variables properly configured  
+✅ Health check endpoints  
+✅ Global error handlers  
+✅ MongoDB connection pooling  
+✅ Next.js optimizations (gzip, image opt, etc.)  
+✅ Security headers configured  
+✅ Optimized Dockerfiles with multi-stage builds  
+✅ Non-root Docker users for security  
+✅ CORS properly enforced  
+✅ Rate limiting configured  
+✅ Graceful shutdown handlers  
+
+See [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) for detailed verification.
+
+---
+
+## API Documentation
+
+### Health Checks
+```bash
+GET /health                    # Backend health
+GET http://localhost:8000/health    # ML service health
+```
+
+### Authentication
+```bash
+POST /api/auth/login          # Login with email/password
+POST /api/auth/register       # Create new account
+POST /api/auth/logout         # Logout
+```
+
+### Resume Analysis
+```bash
+POST /api/resume/analyze      # Upload and analyze resume (PDF)
+GET /api/resume/history       # Get all analyses
+DELETE /api/resume/:id        # Delete analysis
+```
+
+### Example: Analyze Resume
+```bash
+curl -X POST http://localhost:8080/api/resume/analyze \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@resume.pdf"
+```
+
+---
+
+## Troubleshooting
+
+### Frontend can't connect to Backend
+```bash
+# Check NEXT_PUBLIC_BACKEND_URL in .env.local
+# Ensure backend is running: curl http://localhost:8080/health
+# For production: ensure CORS_ORIGIN matches frontend URL
+```
+
+### PDF upload fails
+```bash
+# Ensure file is valid PDF
+# Check file size (max ~50MB)
+# Verify ML service is running
+# Check backend logs for errors
+```
+
+### MongoDB connection fails
+```bash
+# Verify MONGODB_URI is correct
+# For Atlas: check network access includes your IP
+# Test connection: mongosh "$MONGODB_URI"
+```
+
+### Performance issues
+```bash
+# Check MongoDB connection pool: MONGO_MAX_POOL_SIZE=10
+# Verify all 3 services are running
+# Check available memory
+# Scale up Render plan if needed
+```
+
+See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for more troubleshooting.
+
+---
+
+## Project Structure
+
+```
+resume-analyzer/
+├── frontend/                 # Next.js app
+│   ├── app/                 # Routes and pages
+│   ├── components/          # Reusable components
+│   ├── services/            # API client
+│   ├── Dockerfile           # Production build
+│   └── next.config.mjs      # Production optimizations
+│
+├── backend/                 # Express API
+│   ├── src/
+│   │   ├── controllers/     # Request handlers
+│   │   ├── services/        # Business logic
+│   │   ├── middleware/      # Express middleware
+│   │   ├── types/           # TypeScript types
+│   │   └── utils/           # Utilities
+│   ├── Dockerfile           # Production build
+│   └── tsconfig.json        # TypeScript config
+│
+├── ml-model/                # FastAPI service
+│   ├── app/
+│   │   ├── main.py         # FastAPI app
+│   │   ├── pipelines/      # ML pipelines
+│   │   ├── services/       # Business logic
+│   │   └── models/         # ML models
+│   ├── Dockerfile          # Production build
+│   └── requirements.txt     # Python dependencies
+│
+├── docker-compose.yml       # Local development
+├── docker-compose.prod.yml  # Production reference
+├── RENDER_DEPLOYMENT.md     # Deployment guide
+└── PRODUCTION_CHECKLIST.md  # Verification list
+```
+
+---
+
+## Security
+
+### Implemented
+✅ JWT authentication  
+✅ CORS policy enforcement  
+✅ Rate limiting (20 req/15min per IP)  
+✅ Security headers (helmet)  
+✅ Input validation (Zod)  
+✅ No hardcoded secrets  
+✅ Non-root Docker users  
+✅ HTTPS-ready  
+
+### Best Practices
+- Store secrets in environment variables
+- Regenerate JWT_SECRET for each environment
+- Restrict MongoDB network access
+- Enable HTTPS in production
+- Monitor error logs
+- Regular security audits
+
+---
+
+## Scaling
+
+| Component | Free | Starter | Standard |
+|-----------|------|---------|----------|
+| Frontend | ✅ | $7/mo | $12/mo |
+| Backend | ✅ | $7/mo | $12/mo |
+| ML Service | ✅ | $7/mo | $12/mo |
+| MongoDB | ✅ M0 | M2 $9/mo | M5+ $57/mo |
+
+---
+
+## Getting Help
+
+- **Render Documentation**: https://render.com/docs
+- **MongoDB Atlas**: https://docs.mongodb.com/atlas/
+- **Next.js**: https://nextjs.org/docs
+- **FastAPI**: https://fastapi.tiangolo.com/
+
+---
+
+## License
+
+Proprietary
+
+---
+
+**Last Updated**: April 13, 2026  
+**Status**: ✅ Production Ready
 ```
 
 Open `http://localhost:3000`.
@@ -239,20 +430,11 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Recommended production env for Gemini-first behavior:
+Recommended production env for custom model behavior:
 
 ```dotenv
-USE_GEMINI_ROADMAP=true
-USE_GEMINI_ENHANCEMENTS=true
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.0-flash
-GEMINI_TIMEOUT_MS=8000
-GEMINI_MAX_RETRIES=1
-USE_OLLAMA_ROADMAP=false
-USE_OLLAMA_ENHANCEMENTS=false
+USE_RESUME_CLASSIFIER=true
 ```
-
-If you later host Ollama separately, you can enable the two `USE_OLLAMA_*` flags and set `OLLAMA_BASE_URL` to that deployed Ollama endpoint.
 
 ### 4) Final verification
 
