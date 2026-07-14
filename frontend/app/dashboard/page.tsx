@@ -256,7 +256,7 @@ export default function DashboardPage() {
   const [showLoadingOverlay, setShowLoadingOverlay] = useState(false);
   const [requestSettled, setRequestSettled] = useState(true);
   const [onboardingSnapshot, setOnboardingSnapshot] = useState<OnboardingSnapshot | null>(null);
-  const [rewriteInstructions, setRewriteInstructions] = useState("");
+  const [rewriteInstructions] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -290,20 +290,7 @@ export default function DashboardPage() {
     } else {
       setOnboardingSnapshot(null);
     }
-
-    const savedPrompt = window.localStorage.getItem(STORED_PROMPT_KEY);
-    if (savedPrompt) {
-      setRewriteInstructions(savedPrompt);
-      return;
-    }
-
-    setRewriteInstructions(buildDefaultRewritePrompt(snapshot));
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !rewriteInstructions) return;
-    window.localStorage.setItem(STORED_PROMPT_KEY, rewriteInstructions);
-  }, [rewriteInstructions]);
 
   const mutation = useMutation({
     mutationFn: async (uploadFile: File) => {
@@ -435,28 +422,6 @@ export default function DashboardPage() {
                     setErrorState(null);
                   }}
                   setDragging={setDragging}
-                />
-              </div>
-              <div className="mt-6 rounded-2xl border border-border/70 bg-secondary/20 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold">Rewrite prompt</p>
-                    <p className="text-xs text-muted-foreground">Edit the prompt that drives the advanced rewrite suggestions. The default is already tailored to the Resume Analyzer workflow.</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setRewriteInstructions(buildDefaultRewritePrompt(onboardingSnapshot))}
-                  >
-                    Reset prompt
-                  </Button>
-                </div>
-                <textarea
-                  value={rewriteInstructions}
-                  onChange={(event) => setRewriteInstructions(event.target.value)}
-                  rows={11}
-                  className="mt-4 min-h-[14rem] w-full rounded-xl border border-border bg-background/90 p-4 text-sm leading-6 outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                  placeholder="Describe how you want the resume bullets rewritten..."
                 />
               </div>
               {preflight?.hint && <p className="mt-2 text-xs text-muted-foreground">{preflight.hint}</p>}

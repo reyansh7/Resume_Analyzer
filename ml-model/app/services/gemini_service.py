@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # Config
 # ---------------------------------------------------------------------------
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
 GEMINI_TIMEOUT: int = max(5, int(os.getenv("GEMINI_TIMEOUT_MS", "8000")) // 1000)
 GEMINI_MAX_RETRIES: int = int(os.getenv("GEMINI_MAX_RETRIES", "2"))
 
