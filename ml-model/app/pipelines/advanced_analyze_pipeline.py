@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+import os
 import re
 from typing import Dict, List
 from sklearn.metrics.pairwise import cosine_similarity
@@ -16,6 +17,24 @@ from app.modules import (
 )
 from app.pipelines.analyze_pipeline import AnalyzePipeline
 from app.services.embedding_service import EmbeddingService
+from app.services.ollama_service import (
+    USE_OLLAMA,
+    OLLAMA_MODEL,
+    analyze_resume_overview as ollama_analyze_resume_overview,
+    generate_skill_insights as ollama_generate_skill_insights,
+    generate_advanced_roadmap as ollama_generate_advanced_roadmap,
+    generate_ollama_rewrites,
+    is_ollama_available,
+)
+from app.services.gemini_service import (
+    USE_GEMINI,
+    USE_GEMINI_ROADMAP,
+    GEMINI_MODEL,
+    analyze_resume_overview as gemini_analyze_resume_overview,
+    generate_skill_insights as gemini_generate_skill_insights,
+    generate_advanced_roadmap as gemini_generate_advanced_roadmap,
+    generate_gemini_rewrites,
+)
 from app.utils.skill_dictionary import ROLE_SKILL_MAP
 
 
@@ -114,8 +133,23 @@ class AdvancedAnalyzePipeline:
         prioritized = [skill for _, skill in scored[:8]]
         return list(dict.fromkeys(prioritized))
 
-    def run(self, resume_text: str, target_role: str, current_skills: List[str], profession: str, level: str) -> AdvancedAnalysisResult:
-        logger.info("Running advanced analysis for target_role=%s, level=%s", target_role, level)
+    def run(
+        self,
+        resume_text: str,
+        target_role: str,
+        current_skills: List[str],
+        profession: str,
+        level: str,
+        rewrite_instructions: str | None = None,
+    ) -> AdvancedAnalysisResult:
+        logger.info(
+            "Running advanced analysis — target_role=%s level=%s ollama_enabled=%s",
+            target_role, level, USE_OLLAMA,
+        )
+
+        # ------------------------------------------------------------------
+        # 1. Base deterministic pipeline (skill extraction, scoring, etc.)
+        # ------------------------------------------------------------------
         base_result = self.base_pipeline.run(
             resume_text=resume_text,
             target_role=target_role,
@@ -147,30 +181,217 @@ class AdvancedAnalyzePipeline:
             level=level,
         )
 
-        gap_source = "local"
+        # ------------------------------------------------------------------
+        # 2. LLM enhancement — priority: Ollama (local) → Gemini → local
+        # ------------------------------------------------------------------
+        ollama_live = USE_OLLAMA and is_ollama_available()
+        if USE_OLLAMA and not ollama_live:
+            logger.warning("[ollama] USE_OLLAMA_ENHANCEMENTS=true but Ollama is not reachable")
+        if not ollama_live and USE_GEMINI:
+            logger.info("[gemini] Ollama unavailable — using Gemini for LLM tasks")
+        if not ollama_live and not USE_GEMINI:
+            logger.info("[llm] no LLM available — using local fallbacks only")
 
-        advanced_roadmap = self.roadmap_generator.generate(
-            missing_skills=prioritized_gaps,
-            target_role=target_role,
+        # --- 2a. Resume overview ---
+        overview_source = "local"
+        overview_model: str | None = None
+        llm_overview: Dict = {}
+
+        if ollama_live:
+            try:
+                llm_overview = ollama_analyze_resume_overview(
+                    resume_text=resume_text,
+                    target_role=target_role,
+                    profession=profession,
+                    level=level,
+                    current_skills=current_skills,
+                )
+                if llm_overview:
+                    overview_source = "ollama"
+                    overview_model = OLLAMA_MODEL
+                    logger.info("[ollama] overview OK")
+            except Exception:
+                logger.exception("[ollama] overview failed")
+        elif USE_GEMINI:
+            try:
+                llm_overview = gemini_analyze_resume_overview(
+                    resume_text=resume_text,
+                    target_role=target_role,
+                    profession=profession,
+                    level=level,
+                    current_skills=current_skills,
+                )
+                if llm_overview:
+                    overview_source = "gemini"
+                    overview_model = GEMINI_MODEL
+                    logger.info("[gemini] overview OK")
+            except Exception:
+                logger.exception("[gemini] overview failed")
+
+        # --- 2b. Skill insights ---
+        skill_insights_source = "local"
+        merged_insights: List[dict]
+        llm_insights: List[dict] = []
+
+        if ollama_live:
+            try:
+                llm_insights = ollama_generate_skill_insights(
+                    resume_text=resume_text,
+                    target_role=target_role,
+                    strengths=base_result.strengths,
+                    skill_gaps=prioritized_gaps,
+                    level=level,
+                )
+                if llm_insights:
+                    skill_insights_source = "ollama"
+                    logger.info("[ollama] skill insights OK count=%d", len(llm_insights))
+            except Exception:
+                logger.exception("[ollama] skill insights failed")
+        elif USE_GEMINI:
+            try:
+                llm_insights = gemini_generate_skill_insights(
+                    resume_text=resume_text,
+                    target_role=target_role,
+                    strengths=base_result.strengths,
+                    skill_gaps=prioritized_gaps,
+                    level=level,
+                )
+                if llm_insights:
+                    skill_insights_source = "gemini"
+                    logger.info("[gemini] skill insights OK count=%d", len(llm_insights))
+            except Exception:
+                logger.exception("[gemini] skill insights failed")
+
+        merged_insights = llm_insights if llm_insights else (
+            [item.__dict__ for item in detected_insights] + self._gap_insights(prioritized_gaps)
         )
 
-        rewrites = self.rewrite_engine.analyze_and_rewrite(resume_text)
+        # --- 2c. Advanced roadmap ---
+        roadmap_source = "local"
+        roadmap_model: str | None = None
+        advanced_roadmap: Dict = {}
+
+        if ollama_live:
+            try:
+                ollama_roadmap = ollama_generate_advanced_roadmap(
+                    missing_skills=prioritized_gaps,
+                    target_role=target_role,
+                    level=level,
+                    resume_text=resume_text,
+                )
+                if any(ollama_roadmap.get(k) for k in ("30_day_plan", "60_day_plan", "90_day_plan")):
+                    advanced_roadmap = ollama_roadmap
+                    roadmap_source = "ollama"
+                    roadmap_model = OLLAMA_MODEL
+                    logger.info("[ollama] roadmap OK")
+            except Exception:
+                logger.exception("[ollama] roadmap failed")
+        elif USE_GEMINI_ROADMAP:
+            try:
+                gemini_roadmap = gemini_generate_advanced_roadmap(
+                    missing_skills=prioritized_gaps,
+                    target_role=target_role,
+                    level=level,
+                    resume_text=resume_text,
+                )
+                if any(gemini_roadmap.get(k) for k in ("30_day_plan", "60_day_plan", "90_day_plan")):
+                    advanced_roadmap = gemini_roadmap
+                    roadmap_source = "gemini"
+                    roadmap_model = GEMINI_MODEL
+                    logger.info("[gemini] roadmap OK")
+            except Exception:
+                logger.exception("[gemini] roadmap failed")
+
+        if not advanced_roadmap:
+            advanced_roadmap = self.roadmap_generator.generate(
+                missing_skills=prioritized_gaps, target_role=target_role
+            )
+
+        # --- 2d. Resume rewrites ---
         rewrite_source = "local"
+        rewrites: List[dict] = []
 
+        if ollama_live:
+            try:
+                ollama_rewrites = generate_ollama_rewrites(
+                    resume_text=resume_text,
+                    target_role=target_role,
+                    profession=profession,
+                    level=level,
+                    current_skills=current_skills,
+                    rewrite_instructions=rewrite_instructions,
+                )
+                if ollama_rewrites:
+                    rewrites = ollama_rewrites
+                    rewrite_source = "ollama"
+                    logger.info("[ollama] rewrites OK count=%d", len(rewrites))
+            except Exception:
+                logger.exception("[ollama] rewrites failed")
+        elif USE_GEMINI:
+            try:
+                gemini_rewrites = generate_gemini_rewrites(
+                    resume_text=resume_text,
+                    target_role=target_role,
+                    profession=profession,
+                    level=level,
+                    current_skills=current_skills,
+                    rewrite_instructions=rewrite_instructions,
+                )
+                if gemini_rewrites:
+                    rewrites = gemini_rewrites
+                    rewrite_source = "gemini"
+                    logger.info("[gemini] rewrites OK count=%d", len(rewrites))
+            except Exception:
+                logger.exception("[gemini] rewrites failed")
+
+        if not rewrites:
+            rewrites = self.rewrite_engine.analyze_and_rewrite(
+                resume_text=resume_text,
+                target_role=target_role,
+                profession=profession,
+                experience_level=level,
+                current_skills=current_skills,
+                rewrite_instructions=rewrite_instructions,
+            )
+
+        # ------------------------------------------------------------------
+        # 3. ATS check (always local — fast and deterministic)
+        # ------------------------------------------------------------------
         ats = self.ats_checker.evaluate(resume_text=resume_text, target_role_skills=role_skills)
-        ats_source = "local"
 
-        # Merge both detected (strength) and missing (gaps) skill cards.
-        merged_insights = [item.__dict__ for item in detected_insights] + self._gap_insights(prioritized_gaps)
-
+        # ------------------------------------------------------------------
+        # 4. Build enriched parsedResume (merge base + LLM overview)
+        # ------------------------------------------------------------------
         parsed_resume = dict(base_result.parsed_resume)
+
+        # Merge LLM overview fields (they override local where present)
+        if llm_overview:
+            for field in (
+                "skillsExtracted", "softSkillsHighlights", "certificationsDetected",
+                "awardsDetected", "featuredExperiences", "featuredProjects",
+                "predictedCategory", "resumePreview", "wordCount",
+            ):
+                val = llm_overview.get(field)
+                if val is not None and val != [] and val != "":
+                    parsed_resume[field] = val
+
+            edu = llm_overview.get("educationHighlights")
+            if edu:
+                parsed_resume["educationHighlights"] = edu
+
+        # Always stamp the source/model fields so the UI "Roadmap Engine" badge works
+        parsed_resume["overviewSource"] = overview_source
+        parsed_resume["overviewModel"] = overview_model
+        parsed_resume["roadmapSource"] = roadmap_source
+        parsed_resume["roadmapModel"] = roadmap_model
+
         parsed_resume["advanced"] = {
             "skillInsightsCount": len(merged_insights),
             "rewriteSuggestionsCount": len(rewrites),
             "atsStatus": ats.get("status"),
-            "skillGapSource": gap_source,
+            "skillGapSource": skill_insights_source,
             "rewriteSource": rewrite_source,
-            "atsSource": ats_source,
+            "atsSource": "local",
         }
 
         return AdvancedAnalysisResult(

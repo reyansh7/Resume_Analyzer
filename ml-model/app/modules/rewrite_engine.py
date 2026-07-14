@@ -2,6 +2,12 @@ from __future__ import annotations
 
 import re
 from typing import List
+import os
+
+try:
+    from app.services.llm_service import generate_rewrites
+except Exception:
+    generate_rewrites = None
 
 
 WEAK_VERBS = {
@@ -214,45 +220,102 @@ class ResumeRewriteEngine:
         # Fallback
         return f"{normalized.capitalize()}, {outcome}."
 
-    def analyze_and_rewrite(self, resume_text: str) -> List[dict]:
+    def analyze_and_rewrite(
+        self,
+        resume_text: str,
+        target_role: str,
+        profession: str,
+        experience_level: str,
+        current_skills: List[str],
+        rewrite_instructions: str | None = None,
+    ) -> List[dict]:
         rewrites: List[dict] = []
         seen_after: set[str] = set()
         seen_improvement_types: dict[str, int] = {}
+        candidates = self._candidate_lines(resume_text)[:10]
 
-        for index, line in enumerate(self._candidate_lines(resume_text)[:10]):
-            after, improvement_type = self._rewrite(line, index=index)
-            
-            # Skip if marked for skipping
-            if improvement_type == "skip":
-                continue
-            
-            # Skip if rewrite is same as original
-            if after.strip().lower() == line.strip().lower():
-                continue
-            
-            # Skip if we've already seen this exact rewrite
-            if after.strip().lower() in seen_after:
-                continue
-            
-            # Limit repetitive improvement types (max 2 of same type)
-            if improvement_type in seen_improvement_types:
-                if seen_improvement_types[improvement_type] >= 2:
+        # If HF LLM rewrites are enabled, try to use model-generated rewrites first
+        use_llm = os.getenv("USE_HF_LLM", "false").strip().lower() in {"1", "true", "yes"}
+        model_results = []
+        if use_llm and generate_rewrites is not None:
+            try:
+                model_results = generate_rewrites(
+                    candidates,
+                    resume_text=resume_text,
+                    target_role=target_role,
+                    profession=profession,
+                    experience_level=experience_level,
+                    current_skills=current_skills,
+                    rewrite_instructions=rewrite_instructions,
+                )
+            except Exception:
+                model_results = []
+
+        # Integrate model results if present
+        added = 0
+        if model_results:
+            for item in model_results:
+                before = item.get("before", "")
+                after = item.get("after", "")
+                if not before or not after:
                     continue
-                seen_improvement_types[improvement_type] += 1
-            else:
-                seen_improvement_types[improvement_type] = 1
-            
-            # Skip if rewrite is too short (likely just noise)
-            if len(after.strip()) < 30:
-                continue
-            
-            seen_after.add(after.strip().lower())
-            rewrites.append(
-                {
-                    "section": "Experience/Projects",
-                    "before": line,
-                    "after": after,
-                    "improvement_type": improvement_type,
-                }
-            )
+                if after.strip().lower() in seen_after:
+                    continue
+                if len(after.strip()) < 20:
+                    continue
+                seen_after.add(after.strip().lower())
+                rewrites.append(
+                    {
+                        "section": "Experience/Projects",
+                        "before": before,
+                        "after": after,
+                        "improvement_type": "llm_generated",
+                    }
+                )
+                added += 1
+                if added >= 6:
+                    break
+
+        # If not enough model rewrites, fall back to rule-based rewrites
+        if added < 6:
+            for index, line in enumerate(candidates):
+                if added >= 6:
+                    break
+                after, improvement_type = self._rewrite(line, index=index)
+
+                # Skip if marked for skipping
+                if improvement_type == "skip":
+                    continue
+
+                # Skip if rewrite is same as original
+                if after.strip().lower() == line.strip().lower():
+                    continue
+
+                # Skip if we've already seen this exact rewrite
+                if after.strip().lower() in seen_after:
+                    continue
+
+                # Limit repetitive improvement types (max 2 of same type)
+                if improvement_type in seen_improvement_types:
+                    if seen_improvement_types[improvement_type] >= 2:
+                        continue
+                    seen_improvement_types[improvement_type] += 1
+                else:
+                    seen_improvement_types[improvement_type] = 1
+
+                # Skip if rewrite is too short (likely just noise)
+                if len(after.strip()) < 30:
+                    continue
+
+                seen_after.add(after.strip().lower())
+                rewrites.append(
+                    {
+                        "section": "Experience/Projects",
+                        "before": line,
+                        "after": after,
+                        "improvement_type": improvement_type,
+                    }
+                )
+                added += 1
+
         return rewrites[:6]

@@ -1,6 +1,20 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+const ICON_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#grad)"/>
+  <path d="M20 40V24h12c6 0 10 3 10 8s-4 8-10 8H20Zm8-6h4c2 0 3-1 3-2s-1-2-3-2h-4v4Z" fill="white"/>
+</svg>`;
 
-export function GET(request: NextRequest) {
-  return NextResponse.redirect(new URL("/icon.svg", request.url));
+export function GET() {
+  return new Response(ICON_SVG, {
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=86400, immutable"
+    }
+  });
 }

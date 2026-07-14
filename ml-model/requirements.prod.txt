@@ -1,0 +1,17 @@
+# Production requirements — no GPU/HF-LLM dependencies
+# USE_HF_LLM=false on Render, Gemini handles LLM tasks
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+numpy==2.1.2
+scikit-learn==1.5.2
+spacy==3.8.2
+sentence-transformers==3.2.0
+pandas==2.2.3
+joblib==1.4.2
+pypdf==5.1.0
+# CPU-only torch (for sentence-transformers) — ~200MB vs ~2GB for CUDA
+torch==2.2.0+cpu
+torchvision==0.17.0+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu

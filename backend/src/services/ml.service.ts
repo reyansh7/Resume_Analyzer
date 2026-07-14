@@ -7,6 +7,7 @@ export type MlRequest = {
   currentSkills: string[];
   profession: string;
   experienceLevel: string;
+  rewriteInstructions?: string;
 };
 
 export type MlResponse = {

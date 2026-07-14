@@ -8,6 +8,7 @@ class AnalyzeRequest(BaseModel):
     currentSkills: List[str] = Field(default_factory=list)
     profession: str = Field(min_length=1)
     experienceLevel: str = Field(min_length=1)
+    rewriteInstructions: str | None = None
 
 
 class RoadmapStep(BaseModel):

@@ -126,6 +126,15 @@ const tabs: Array<{ value: Tab; label: string }> = [
 
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 const STORED_ANALYSIS_KEY = "resume-analyzer:last-analysis-v1";
+const STORED_PROMPT_KEY = "resume-analyzer:rewrite-prompt-v1";
+
+type OnboardingSnapshot = {
+  profession?: string;
+  targetRole?: string;
+  level?: string;
+  skills?: string[];
+  goal?: string;
+};
 
 type PreflightState = {
   blocking: string[];
@@ -150,6 +159,34 @@ function runPreflightCheck(selectedFile: File): PreflightState {
     : "For best results, upload a text-based PDF with selectable text.";
 
   return { blocking, hint };
+}
+
+function buildDefaultRewritePrompt(snapshot?: OnboardingSnapshot | null) {
+  const skillList = snapshot?.skills?.length ? snapshot.skills.slice(0, 8).join(", ") : "the skills explicitly shown in the resume";
+
+  return `You are the Resume Analyzer project's rewrite assistant.
+
+Input you will receive:
+- Resume text extracted from a PDF
+- Candidate bullet lines selected from the resume
+- Target role: ${snapshot?.targetRole ?? "the user's target role"}
+- Profession: ${snapshot?.profession ?? "the user's profession"}
+- Experience level: ${snapshot?.level ?? "the user's experience level"}
+- Current skills: ${skillList}
+- Career goal: ${snapshot?.goal ?? "Improve ATS fit, clarity, and measurable impact"}
+
+Output you must return:
+- A JSON array only
+- Each object must contain: section, before, after, improvement_type
+- Keep the rewrite grounded in the supplied resume text
+- Prefer action-first language, specific outcomes, role keywords, and ATS-friendly phrasing
+- Do not invent metrics, employers, tools, dates, or achievements that are not supported by the input
+- Keep each rewrite concise, natural, and resume-ready
+
+User override instructions:
+- Use the text I type in the editor as the final override for tone, style, or output focus
+- If my instructions conflict with the safety rules above, follow the safety rules
+`.trim();
 }
 
 function buildResultView(data: AnalysisResult) {
@@ -218,6 +255,8 @@ export default function DashboardPage() {
   const [storedResult, setStoredResult] = useState<AnalysisResult | null>(null);
   const [showLoadingOverlay, setShowLoadingOverlay] = useState(false);
   const [requestSettled, setRequestSettled] = useState(true);
+  const [onboardingSnapshot, setOnboardingSnapshot] = useState<OnboardingSnapshot | null>(null);
+  const [rewriteInstructions, setRewriteInstructions] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -234,10 +273,46 @@ export default function DashboardPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const rawOnboarding = window.localStorage.getItem("onboarding");
+    let snapshot: OnboardingSnapshot | null = null;
+
+    if (rawOnboarding) {
+      try {
+        snapshot = JSON.parse(rawOnboarding) as OnboardingSnapshot;
+        setOnboardingSnapshot(snapshot);
+      } catch {
+        snapshot = null;
+        setOnboardingSnapshot(null);
+      }
+    } else {
+      setOnboardingSnapshot(null);
+    }
+
+    const savedPrompt = window.localStorage.getItem(STORED_PROMPT_KEY);
+    if (savedPrompt) {
+      setRewriteInstructions(savedPrompt);
+      return;
+    }
+
+    setRewriteInstructions(buildDefaultRewritePrompt(snapshot));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !rewriteInstructions) return;
+    window.localStorage.setItem(STORED_PROMPT_KEY, rewriteInstructions);
+  }, [rewriteInstructions]);
+
   const mutation = useMutation({
     mutationFn: async (uploadFile: File) => {
       const formData = new FormData();
       formData.append("resume", uploadFile);
+      const promptText = rewriteInstructions.trim();
+      if (promptText) {
+        formData.append("rewriteInstructions", promptText);
+      }
       return analyzeResumeWithFallback(formData);
     },
     onMutate: () => {
@@ -360,6 +435,28 @@ export default function DashboardPage() {
                     setErrorState(null);
                   }}
                   setDragging={setDragging}
+                />
+              </div>
+              <div className="mt-6 rounded-2xl border border-border/70 bg-secondary/20 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Rewrite prompt</p>
+                    <p className="text-xs text-muted-foreground">Edit the prompt that drives the advanced rewrite suggestions. The default is already tailored to the Resume Analyzer workflow.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setRewriteInstructions(buildDefaultRewritePrompt(onboardingSnapshot))}
+                  >
+                    Reset prompt
+                  </Button>
+                </div>
+                <textarea
+                  value={rewriteInstructions}
+                  onChange={(event) => setRewriteInstructions(event.target.value)}
+                  rows={11}
+                  className="mt-4 min-h-[14rem] w-full rounded-xl border border-border bg-background/90 p-4 text-sm leading-6 outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                  placeholder="Describe how you want the resume bullets rewritten..."
                 />
               </div>
               {preflight?.hint && <p className="mt-2 text-xs text-muted-foreground">{preflight.hint}</p>}

@@ -28,6 +28,22 @@ logging.basicConfig(
 app = FastAPI(title="Resume Analyzer ML Service", version="1.0.0")
 
 
+@app.on_event("startup")
+def startup_event():
+    # If configured to use local HF LLM, attempt to warm-load model to surface issues early
+    try:
+        if os.getenv("USE_HF_LLM", "false").strip().lower() in {"1", "true", "yes"}:
+            from app.services.llm_service import get_model_wrapper
+
+            wrapper = get_model_wrapper()
+            if wrapper is None:
+                logging.getLogger(__name__).warning("USE_HF_LLM enabled but model failed to load at startup")
+            else:
+                logging.getLogger(__name__).info("HF LLM model loaded at startup")
+    except Exception:
+        logging.getLogger(__name__).exception("Error while warming HF LLM at startup")
+
+
 @lru_cache(maxsize=1)
 def get_advanced_pipeline() -> AdvancedAnalyzePipeline:
     return AdvancedAnalyzePipeline()
@@ -84,6 +100,7 @@ def analyze_v2(payload: AnalyzeRequest) -> AnalyzeResponseV2:
         current_skills=payload.currentSkills,
         profession=payload.profession,
         level=payload.experienceLevel,
+        rewrite_instructions=payload.rewriteInstructions,
     )
 
     return AnalyzeResponseV2(

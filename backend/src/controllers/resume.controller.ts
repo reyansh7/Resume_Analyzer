@@ -35,6 +35,12 @@ function normalizeRole(role: string) {
   return "software engineer";
 }
 
+function readOptionalString(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function buildFallbackBaseResult(input: {
   resumeText: string;
   targetRole: string;
@@ -132,6 +138,8 @@ export async function analyzeResumeController(req: Request, res: Response, next:
     const file = req.file;
     if (!file) return res.status(400).json({ message: "Resume file is required", requestId });
 
+    const rewriteInstructions = readOptionalString(req.body?.rewriteInstructions);
+
     let user: any = null;
     if (userId) {
       user = await findUserById(userId);
@@ -165,7 +173,8 @@ export async function analyzeResumeController(req: Request, res: Response, next:
         targetRole: user?.targetRole || "Software Engineer",
         currentSkills: user?.skills || [],
         profession: user?.profession || "Engineer",
-        experienceLevel: user?.level || "Mid"
+        experienceLevel: user?.level || "Mid",
+        rewriteInstructions
       }, {
         requestId,
         uploadFileName: file.originalname,
@@ -240,6 +249,8 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
     const file = req.file;
     if (!file) return res.status(400).json({ message: "Resume file is required", requestId });
 
+    const rewriteInstructions = readOptionalString(req.body?.rewriteInstructions);
+
     let user: any = null;
     if (userId) {
       user = await findUserById(userId);
@@ -282,7 +293,8 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
         targetRole: user?.targetRole || "Software Engineer",
         currentSkills: user?.skills || [],
         profession: user?.profession || "Engineer",
-        experienceLevel: user?.level || "Mid"
+        experienceLevel: user?.level || "Mid",
+        rewriteInstructions
       }, {
         requestId,
         uploadFileName: file.originalname,
@@ -308,7 +320,8 @@ export async function analyzeResumeV2Controller(req: Request, res: Response, nex
             targetRole: user.targetRole || "Software Engineer",
             currentSkills: user.skills,
             profession: user.profession || "Engineer",
-            experienceLevel: user.level || "Mid"
+            experienceLevel: user.level || "Mid",
+            rewriteInstructions
           }, {
             requestId,
             uploadFileName: file.originalname,

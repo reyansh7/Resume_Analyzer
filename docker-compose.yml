@@ -17,11 +17,22 @@ services:
     container_name: resume-analyzer-ml
     restart: unless-stopped
     environment:
+      USE_RESUME_CLASSIFIER: ${USE_RESUME_CLASSIFIER:-true}
+      # Gemini — primary LLM for cloud deployments
+      USE_GEMINI_ENHANCEMENTS: ${USE_GEMINI_ENHANCEMENTS:-false}
       USE_GEMINI_ROADMAP: ${USE_GEMINI_ROADMAP:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
-      GEMINI_TIMEOUT_MS: ${GEMINI_TIMEOUT_MS:-8000}
-      GEMINI_MAX_RETRIES: ${GEMINI_MAX_RETRIES:-1}
+      GEMINI_TIMEOUT_MS: ${GEMINI_TIMEOUT_MS:-10000}
+      GEMINI_MAX_RETRIES: ${GEMINI_MAX_RETRIES:-2}
+      # Ollama — only works when running locally with Ollama installed
+      USE_OLLAMA_ENHANCEMENTS: ${USE_OLLAMA_ENHANCEMENTS:-false}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      # HuggingFace local LLM (disabled by default — needs GPU)
+      HUGGINGFACE_HUB_TOKEN: ${HUGGINGFACE_HUB_TOKEN:-}
+      USE_HF_LLM: ${USE_HF_LLM:-false}
+      MODEL_NAME: ${MODEL_NAME:-}
     ports:
       - "8000:8000"
 
@@ -31,6 +42,8 @@ services:
       dockerfile: Dockerfile
     container_name: resume-analyzer-backend
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     depends_on:
       - mongodb
       - ml-model
@@ -39,7 +52,6 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017}
       MONGODB_DB_NAME: ${MONGODB_DB_NAME:-resume_analyzer}
-      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-model:8000}
